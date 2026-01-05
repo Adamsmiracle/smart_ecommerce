@@ -10,6 +10,8 @@ module com.amalitech.smartecommerce {
     requires org.kordamp.bootstrapfx.core;
     requires eu.hansolo.tilesfx;
     requires com.almasb.fxgl.all;
+    requires java.sql;
+    requires java.dotenv;
 
     opens com.amalitech.smartecommerce to javafx.fxml;
     exports com.amalitech.smartecommerce.app;
