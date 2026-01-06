@@ -5,9 +5,9 @@ import java.util.List;
 import java.util.UUID;
 
 public interface OrderDao {
-    Order findById(UUID id);
+    Order findUserOrderById(UUID id);
     List<Order> findAll();
-    boolean insert(Order order);
+    boolean create(Order order);
     boolean update(Order order);
     boolean delete(UUID id);
 }

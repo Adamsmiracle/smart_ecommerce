@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.amalitech.smartecommerce.controller.AdminDashboardController"
+            styleClass="main-container">
+
+    <!-- Top Navigation Bar -->
+    <top>
+        <VBox styleClass="header">
+            <ScrollPane fitToWidth="true" hbarPolicy="AS_NEEDED" vbarPolicy="NEVER"
+                        style="-fx-background-color: transparent;">
+                <HBox alignment="CENTER_LEFT" spacing="15" styleClass="nav-bar" minWidth="800">
+                    <padding>
+                        <Insets bottom="15" left="25" right="25" top="15"/>
+                    </padding>
+                    <Label text="🛒 Smart E-Commerce" styleClass="app-title">
+                        <font><Font name="System Bold" size="22"/></font>
+                    </Label>
+                    <Label text="Admin Panel" styleClass="admin-badge"/>
+                    <Region HBox.hgrow="ALWAYS" minWidth="10"/>
+                    <Button fx:id="btnDashboard" text="📊 Dashboard" onAction="#showDashboard" styleClass="nav-button"/>
+                    <Button fx:id="btnProducts" text="📦 Products" onAction="#showProducts" styleClass="nav-button"/>
+                    <Button fx:id="btnCategories" text="📁 Categories" onAction="#showCategories" styleClass="nav-button"/>
+                    <Button fx:id="btnInventory" text="📋 Inventory" onAction="#showInventory" styleClass="nav-button"/>
+                    <Button fx:id="btnOrders" text="🛍️ Orders" onAction="#showOrders" styleClass="nav-button"/>
+                    <Button fx:id="btnUsers" text="👥 Users" onAction="#showUsers" styleClass="nav-button"/>
+                    <Button fx:id="btnPerformance" text="⚡ Performance" onAction="#showPerformance" styleClass="nav-button"/>
+                    <Separator orientation="VERTICAL"/>
+                    <Label fx:id="lblUserName" text="Admin" styleClass="user-name"/>
+                    <Button text="Logout" onAction="#handleLogout" styleClass="logout-button"/>
+                </HBox>
+            </ScrollPane>
+        </VBox>
+    </top>
+
+    <!-- Main Content Area -->
+    <center>
+        <ScrollPane fitToWidth="true" fitToHeight="true" hbarPolicy="AS_NEEDED" vbarPolicy="AS_NEEDED">
+            <StackPane fx:id="contentArea" styleClass="content-area" minWidth="400">
+                <padding>
+                    <Insets bottom="25" left="25" right="25" top="25"/>
+                </padding>
+
+                <!-- Dashboard Home View (default) -->
+                <VBox fx:id="dashboardView" spacing="25" alignment="TOP_CENTER" fillWidth="true">
+                    <Label text="Admin Dashboard" styleClass="page-title" wrapText="true">
+                        <font><Font size="32" name="System Bold"/></font>
+                    </Label>
+                    <Label text="Welcome back! Here's an overview of your store." styleClass="page-subtitle" wrapText="true"/>
+
+                    <!-- Statistics Cards - Using FlowPane for responsive wrapping -->
+                    <FlowPane hgap="20" vgap="20" alignment="CENTER" prefWrapLength="900">
+                        <VBox styleClass="stat-card stat-card-blue" alignment="CENTER" spacing="10" prefWidth="200" minWidth="160">
+                            <Label text="📦" styleClass="stat-icon"/>
+                            <Label fx:id="lblProductCount" text="0" styleClass="stat-number"/>
+                            <Label text="Total Products" styleClass="stat-label"/>
+                        </VBox>
+                        <VBox styleClass="stat-card stat-card-green" alignment="CENTER" spacing="10" prefWidth="200" minWidth="160">
+                            <Label text="📁" styleClass="stat-icon"/>
+                            <Label fx:id="lblCategoryCount" text="0" styleClass="stat-number"/>
+                            <Label text="Categories" styleClass="stat-label"/>
+                        </VBox>
+                        <VBox styleClass="stat-card stat-card-orange" alignment="CENTER" spacing="10" prefWidth="200" minWidth="160">
+                            <Label text="🛍️" styleClass="stat-icon"/>
+                            <Label fx:id="lblOrderCount" text="0" styleClass="stat-number"/>
+                            <Label text="Total Orders" styleClass="stat-label"/>
+                        </VBox>
+                        <VBox styleClass="stat-card stat-card-purple" alignment="CENTER" spacing="10" prefWidth="200" minWidth="160">
+                            <Label text="👥" styleClass="stat-icon"/>
+                            <Label fx:id="lblUserCount" text="0" styleClass="stat-number"/>
+                            <Label text="Registered Users" styleClass="stat-label"/>
+                        </VBox>
+                    </FlowPane>
+
+                    <!-- Quick Actions -->
+                    <VBox spacing="20" alignment="CENTER" styleClass="quick-actions-panel" fillWidth="true" VBox.vgrow="NEVER">
+                        <Label text="Quick Actions" styleClass="section-title"/>
+                        <FlowPane hgap="15" vgap="15" alignment="CENTER">
+                            <Button text="➕ Add Product" onAction="#quickAddProduct" styleClass="quick-action-btn"/>
+                            <Button text="➕ Add Category" onAction="#quickAddCategory" styleClass="quick-action-btn"/>
+                            <Button text="📋 View Orders" onAction="#showOrders" styleClass="quick-action-btn"/>
+                            <Button text="🔄 Refresh Cache" onAction="#refreshCache" styleClass="quick-action-btn"/>
+                        </FlowPane>
+                    </VBox>
+
+                    <!-- Cache Status -->
+                    <FlowPane hgap="40" vgap="15" alignment="CENTER" styleClass="cache-status-panel">
+                        <VBox alignment="CENTER" spacing="5">
+                            <Label text="Cache Hit Rate" styleClass="cache-label"/>
+                            <Label fx:id="lblCacheHitRate" text="0%" styleClass="cache-value"/>
+                        </VBox>
+                        <VBox alignment="CENTER" spacing="5">
+                            <Label text="Cached Items" styleClass="cache-label"/>
+                            <Label fx:id="lblCacheSize" text="0" styleClass="cache-value"/>
+                        </VBox>
+                        <VBox alignment="CENTER" spacing="5">
+                            <Label text="Last Refresh" styleClass="cache-label"/>
+                            <Label fx:id="lblLastRefresh" text="Never" styleClass="cache-value"/>
+                        </VBox>
+                    </FlowPane>
+                </VBox>
+            </StackPane>
+        </ScrollPane>
+    </center>
+
+    <!-- Status Bar -->
+    <bottom>
+        <HBox styleClass="status-bar" alignment="CENTER_LEFT" spacing="20">
+            <padding>
+                <Insets bottom="8" left="25" right="25" top="8"/>
+            </padding>
+            <Label fx:id="lblStatus" text="Ready"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Label fx:id="lblConnectionStatus" text="● Connected" styleClass="status-connected"/>
+        </HBox>
+    </bottom>
+</BorderPane>
+

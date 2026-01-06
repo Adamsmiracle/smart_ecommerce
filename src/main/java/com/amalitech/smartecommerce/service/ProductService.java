@@ -16,6 +16,8 @@ public interface ProductService {
 
     Product createProduct(Product product);
 
+    Product createProductWithPrice(Product product, double price, int stock);
+
     Product updateProduct(Product product);
 
     boolean deleteProduct(UUID id);

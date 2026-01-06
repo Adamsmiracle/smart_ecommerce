@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.amalitech.smartecommerce.controller.InventoryController"
+      spacing="20" styleClass="view-container" fillWidth="true">
+    <padding>
+        <Insets bottom="20" left="20" right="20" top="20"/>
+    </padding>
+
+    <!-- Page Header -->
+    <FlowPane hgap="15" vgap="10" alignment="CENTER_LEFT">
+        <Label text="📋 Inventory Management" styleClass="page-title" wrapText="true">
+            <font><Font size="28" name="System Bold"/></font>
+        </Label>
+        <Region HBox.hgrow="ALWAYS" minWidth="20"/>
+        <Button text="🔄 Refresh" onAction="#refreshInventory" styleClass="action-button"/>
+        <Button text="📊 Export Report" onAction="#exportInventoryReport" styleClass="secondary-button"/>
+    </FlowPane>
+
+    <!-- Summary Cards - Using FlowPane for responsive wrapping -->
+    <FlowPane hgap="15" vgap="15" alignment="CENTER" prefWrapLength="800">
+        <VBox styleClass="stat-card stat-card-blue" alignment="CENTER" spacing="8" prefWidth="160" minWidth="140">
+            <Label text="📦" styleClass="stat-icon"/>
+            <Label fx:id="lblTotalProducts" text="0" styleClass="stat-number"/>
+            <Label text="Total Products" styleClass="stat-label"/>
+        </VBox>
+        <VBox styleClass="stat-card stat-card-green" alignment="CENTER" spacing="8" prefWidth="160" minWidth="140">
+            <Label text="✅" styleClass="stat-icon"/>
+            <Label fx:id="lblInStock" text="0" styleClass="stat-number"/>
+            <Label text="In Stock" styleClass="stat-label"/>
+        </VBox>
+        <VBox styleClass="stat-card stat-card-orange" alignment="CENTER" spacing="8" prefWidth="160" minWidth="140">
+            <Label text="⚠️" styleClass="stat-icon"/>
+            <Label fx:id="lblLowStock" text="0" styleClass="stat-number"/>
+            <Label text="Low Stock" styleClass="stat-label"/>
+        </VBox>
+        <VBox styleClass="stat-card stat-card-red" alignment="CENTER" spacing="8" prefWidth="160" minWidth="140">
+            <Label text="❌" styleClass="stat-icon"/>
+            <Label fx:id="lblOutOfStock" text="0" styleClass="stat-number"/>
+            <Label text="Out of Stock" styleClass="stat-label"/>
+        </VBox>
+    </FlowPane>
+
+    <!-- Filter Bar -->
+    <FlowPane hgap="10" vgap="10" alignment="CENTER_LEFT" styleClass="filter-bar">
+        <Label text="Filter:"/>
+        <ComboBox fx:id="cmbStockFilter" promptText="Stock Status" prefWidth="130" minWidth="100"/>
+        <ComboBox fx:id="cmbCategoryFilter" promptText="Category" prefWidth="150" minWidth="120"/>
+        <TextField fx:id="txtSearch" promptText="Search product..." prefWidth="180" minWidth="150"/>
+        <Button text="🔍 Search" onAction="#filterInventory" styleClass="primary-button"/>
+        <Button text="Clear" onAction="#clearFilters" styleClass="secondary-button"/>
+    </FlowPane>
+
+    <!-- Inventory Table -->
+    <TableView fx:id="tblInventory" VBox.vgrow="ALWAYS" styleClass="table-view" minHeight="200">
+        <columns>
+            <TableColumn fx:id="colProduct" text="Product Name" minWidth="150" prefWidth="220"/>
+            <TableColumn fx:id="colCategory" text="Category" minWidth="100" prefWidth="130"/>
+            <TableColumn fx:id="colQuantity" text="Quantity" minWidth="80" prefWidth="90"/>
+            <TableColumn fx:id="colStatus" text="Status" minWidth="90" prefWidth="110"/>
+            <TableColumn fx:id="colLastUpdated" text="Last Updated" minWidth="120" prefWidth="140"/>
+            <TableColumn fx:id="colActions" text="Actions" minWidth="140" prefWidth="160"/>
+        </columns>
+        <placeholder>
+            <Label text="No inventory data found"/>
+        </placeholder>
+    </TableView>
+
+    <!-- Bottom Actions -->
+    <FlowPane hgap="15" vgap="10" alignment="CENTER_RIGHT">
+        <Label fx:id="lblInventorySummary" text="Showing 0 items" styleClass="summary-label"/>
+        <Region HBox.hgrow="ALWAYS" minWidth="20"/>
+        <Button text="📥 Bulk Import" onAction="#bulkImport" styleClass="secondary-button"/>
+        <Button text="➕ Add Stock" onAction="#showAddStockDialog" styleClass="action-button"/>
+    </FlowPane>
+</VBox>
+

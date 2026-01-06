@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.control.cell.PropertyValueFactory?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.amalitech.smartecommerce.controller.CategoryController"
+      spacing="15" styleClass="content-panel" fillWidth="true">
+    <padding>
+        <Insets bottom="20" left="20" right="20" top="20"/>
+    </padding>
+
+    <!-- Header -->
+    <VBox spacing="10">
+        <HBox alignment="CENTER_LEFT">
+            <Label text="Category Management" styleClass="page-title" wrapText="true"/>
+            <Region HBox.hgrow="ALWAYS"/>
+        </HBox>
+        <FlowPane hgap="10" vgap="10" alignment="CENTER_LEFT">
+            <TextField fx:id="txtSearch" promptText="Search categories..." prefWidth="220" minWidth="150"/>
+            <Button text="Search" onAction="#searchCategories" styleClass="primary-button"/>
+        </FlowPane>
+    </VBox>
+
+    <!-- Action Buttons -->
+    <FlowPane hgap="10" vgap="10" alignment="CENTER_LEFT">
+        <Button text="+ Add Category" onAction="#showAddDialog" styleClass="action-button"/>
+        <Button text="Edit" onAction="#showEditDialog" styleClass="secondary-button"/>
+        <Button text="Delete" onAction="#deleteCategory" styleClass="danger-button"/>
+    </FlowPane>
+
+    <!-- Split View: Tree + Table -->
+    <SplitPane dividerPositions="0.35" VBox.vgrow="ALWAYS" orientation="HORIZONTAL">
+        <!-- Category Tree -->
+        <VBox spacing="10" minWidth="200">
+            <Label text="Category Hierarchy" styleClass="section-title"/>
+            <TreeView fx:id="treeCategories" VBox.vgrow="ALWAYS" minHeight="200"/>
+        </VBox>
+
+        <!-- Category Details Table -->
+        <VBox spacing="10" minWidth="300">
+            <Label text="All Categories" styleClass="section-title"/>
+            <TableView fx:id="tblCategories" VBox.vgrow="ALWAYS" minHeight="200">
+                <columns>
+                    <TableColumn text="Category Name" minWidth="150" prefWidth="220">
+                        <cellValueFactory>
+                            <PropertyValueFactory property="categoryName"/>
+                        </cellValueFactory>
+                    </TableColumn>
+                    <TableColumn fx:id="colParent" text="Parent Category" minWidth="140" prefWidth="200"/>
+                    <TableColumn fx:id="colProductCount" text="Products" minWidth="80" prefWidth="100"/>
+                </columns>
+                <placeholder>
+                    <Label text="No categories found."/>
+                </placeholder>
+            </TableView>
+        </VBox>
+    </SplitPane>
+</VBox>
+

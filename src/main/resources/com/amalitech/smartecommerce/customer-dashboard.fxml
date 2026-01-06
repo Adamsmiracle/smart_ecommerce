@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.amalitech.smartecommerce.controller.CustomerDashboardController"
+            styleClass="main-container">
+
+    <!-- Top Navigation Bar -->
+    <top>
+        <VBox styleClass="header customer-header">
+            <ScrollPane fitToWidth="true" hbarPolicy="AS_NEEDED" vbarPolicy="NEVER"
+                        style="-fx-background-color: transparent;">
+                <HBox alignment="CENTER_LEFT" spacing="15" styleClass="nav-bar" minWidth="700">
+                    <padding>
+                        <Insets bottom="15" left="25" right="25" top="15"/>
+                    </padding>
+                    <Label text="🛒 Smart E-Commerce" styleClass="app-title">
+                        <font><Font name="System Bold" size="22"/></font>
+                    </Label>
+                    <Region HBox.hgrow="ALWAYS" minWidth="10"/>
+                    <Button fx:id="btnHome" text="🏠 Home" onAction="#showHome" styleClass="nav-button"/>
+                    <Button fx:id="btnShop" text="🛍️ Shop" onAction="#showShop" styleClass="nav-button"/>
+                    <Button fx:id="btnOrders" text="📦 My Orders" onAction="#showMyOrders" styleClass="nav-button"/>
+                    <Button fx:id="btnCart" text="🛒 Cart" onAction="#showCart" styleClass="nav-button"/>
+                    <Button fx:id="btnProfile" text="👤 Profile" onAction="#showProfile" styleClass="nav-button"/>
+                    <Separator orientation="VERTICAL"/>
+                    <Label fx:id="lblUserName" text="User" styleClass="user-name"/>
+                    <Button text="Logout" onAction="#handleLogout" styleClass="logout-button"/>
+                </HBox>
+            </ScrollPane>
+        </VBox>
+    </top>
+
+    <!-- Main Content Area -->
+    <center>
+        <ScrollPane fitToWidth="true" fitToHeight="true" hbarPolicy="AS_NEEDED" vbarPolicy="AS_NEEDED">
+            <StackPane fx:id="contentArea" styleClass="content-area" minWidth="350">
+                <padding>
+                    <Insets bottom="25" left="25" right="25" top="25"/>
+                </padding>
+
+                <!-- Home View (default) -->
+                <VBox fx:id="homeView" spacing="30" alignment="TOP_CENTER" fillWidth="true">
+                    <!-- Welcome Banner -->
+                    <VBox styleClass="welcome-banner" alignment="CENTER" spacing="10" VBox.vgrow="NEVER">
+                        <padding>
+                            <Insets bottom="40" left="40" right="40" top="40"/>
+                        </padding>
+                        <Label fx:id="lblWelcome" text="Welcome back!" styleClass="welcome-title" wrapText="true">
+                            <font><Font size="36" name="System Bold"/></font>
+                        </Label>
+                        <Label text="Discover amazing products at great prices" styleClass="welcome-subtitle" wrapText="true"/>
+                        <Button text="Start Shopping →" onAction="#showShop" styleClass="shop-now-button"/>
+                    </VBox>
+
+                    <!-- Categories Section -->
+                    <VBox spacing="15" fillWidth="true">
+                        <Label text="Shop by Category" styleClass="section-title"/>
+                        <FlowPane fx:id="categoriesPane" hgap="15" vgap="15" alignment="CENTER" prefWrapLength="800"/>
+                    </VBox>
+
+                    <!-- Featured Products -->
+                    <VBox spacing="15" fillWidth="true" VBox.vgrow="ALWAYS">
+                        <HBox alignment="CENTER_LEFT">
+                            <Label text="Featured Products" styleClass="section-title"/>
+                            <Region HBox.hgrow="ALWAYS"/>
+                            <Hyperlink text="View All →" onAction="#showShop"/>
+                        </HBox>
+                        <FlowPane fx:id="featuredProductsPane" hgap="20" vgap="20" alignment="CENTER" prefWrapLength="800"/>
+                    </VBox>
+                </VBox>
+            </StackPane>
+        </ScrollPane>
+    </center>
+
+    <!-- Status Bar -->
+    <bottom>
+        <HBox styleClass="status-bar" alignment="CENTER_LEFT" spacing="20">
+            <padding>
+                <Insets bottom="8" left="25" right="25" top="8"/>
+            </padding>
+            <Label fx:id="lblStatus" text="Ready"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Label text="© 2026 Smart E-Commerce" styleClass="copyright"/>
+        </HBox>
+    </bottom>
+</BorderPane>
+

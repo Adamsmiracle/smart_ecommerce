@@ -1,6 +1,6 @@
 package com.amalitech.smartecommerce.dao;
 
-import com.amalitech.smartecommerce.model.OrderLine;
+import com.amalitech.smartecommerce.model.OrderStatus;
 import com.amalitech.smartecommerce.utils.DBConnection;
 
 import java.sql.*;
@@ -8,16 +8,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class OrderLineDaoImpl implements OrderLineDao {
+public class OrderStatusDaoImpl implements OrderStatusDao {
+
     @Override
-    public OrderLine findById(UUID id) {
-        String sql = "SELECT * FROM order_line WHERE id = ?";
+    public OrderStatus findById(UUID id) {
+        String sql = "SELECT * FROM order_status WHERE id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setObject(1, id);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    return mapResultSetToOrderLine(rs);
+                    return mapResultSetToOrderStatus(rs);
                 }
             }
         } catch (SQLException e) {
@@ -26,51 +27,46 @@ public class OrderLineDaoImpl implements OrderLineDao {
         return null;
     }
 
-
     @Override
-    public List<OrderLine> findAll() {
-        List<OrderLine> lines = new ArrayList<>();
-        String sql = "SELECT * FROM order_line";
+    public List<OrderStatus> findAll() {
+        List<OrderStatus> statuses = new ArrayList<>();
+        String sql = "SELECT * FROM order_status";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
             while (rs.next()) {
-                lines.add(mapResultSetToOrderLine(rs));
+                statuses.add(mapResultSetToOrderStatus(rs));
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return lines;
+        return statuses;
     }
 
     @Override
-    public List<OrderLine> findByOrderId(UUID orderId) {
-        List<OrderLine> lines = new ArrayList<>();
-        String sql = "SELECT * FROM order_line WHERE order_id = ?";
+    public OrderStatus findByStatus(String status) {
+        String sql = "SELECT * FROM order_status WHERE LOWER(status) = LOWER(?)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, orderId);
+            stmt.setString(1, status);
             try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    lines.add(mapResultSetToOrderLine(rs));
+                if (rs.next()) {
+                    return mapResultSetToOrderStatus(rs);
                 }
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return lines;
+        return null;
     }
 
     @Override
-    public boolean insert(OrderLine orderLine) {
-        String sql = "INSERT INTO order_line (id, product_item_id, order_id, qty, price) VALUES (?, ?, ?, ?, ?)";
+    public boolean insert(OrderStatus orderStatus) {
+        String sql = "INSERT INTO order_status (id, status) VALUES (?, ?)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, orderLine.getId());
-            stmt.setObject(2, orderLine.getProductItemId());
-            stmt.setObject(3, orderLine.getOrderId());
-            stmt.setInt(4, orderLine.getQty());
-            stmt.setObject(5, orderLine.getPrice());
+            stmt.setObject(1, orderStatus.getId() != null ? orderStatus.getId() : UUID.randomUUID());
+            stmt.setString(2, orderStatus.getStatus());
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
@@ -79,15 +75,12 @@ public class OrderLineDaoImpl implements OrderLineDao {
     }
 
     @Override
-    public boolean update(OrderLine orderLine) {
-        String sql = "UPDATE order_line SET product_item_id = ?, order_id = ?, qty = ?, price = ? WHERE id = ?";
+    public boolean update(OrderStatus orderStatus) {
+        String sql = "UPDATE order_status SET status = ? WHERE id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, orderLine.getProductItemId());
-            stmt.setObject(2, orderLine.getOrderId());
-            stmt.setInt(3, orderLine.getQty());
-            stmt.setObject(4, orderLine.getPrice());
-            stmt.setObject(5, orderLine.getId());
+            stmt.setString(1, orderStatus.getStatus());
+            stmt.setObject(2, orderStatus.getId());
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
@@ -97,7 +90,7 @@ public class OrderLineDaoImpl implements OrderLineDao {
 
     @Override
     public boolean delete(UUID id) {
-        String sql = "DELETE FROM order_line WHERE id = ?";
+        String sql = "DELETE FROM order_status WHERE id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setObject(1, id);
@@ -108,13 +101,10 @@ public class OrderLineDaoImpl implements OrderLineDao {
         return false;
     }
 
-    private OrderLine mapResultSetToOrderLine(ResultSet rs) throws SQLException {
+    private OrderStatus mapResultSetToOrderStatus(ResultSet rs) throws SQLException {
         UUID id = (UUID) rs.getObject("id");
-        UUID productItemId = (UUID) rs.getObject("product_item_id");
-        UUID orderId = (UUID) rs.getObject("order_id");
-        int qty = rs.getInt("qty");
-        Double price = rs.getObject("price") != null ? ((Number) rs.getObject("price")).doubleValue() : null;
-        return new OrderLine(id, productItemId, orderId, qty, price);
+        String status = rs.getString("status");
+        return new OrderStatus(id, status);
     }
 }
 

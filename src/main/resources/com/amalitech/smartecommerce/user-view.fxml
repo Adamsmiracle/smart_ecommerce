@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.control.cell.PropertyValueFactory?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.amalitech.smartecommerce.controller.UserController"
+      spacing="15" styleClass="content-panel" fillWidth="true">
+    <padding>
+        <Insets bottom="20" left="20" right="20" top="20"/>
+    </padding>
+
+    <!-- Header with Search -->
+    <VBox spacing="10">
+        <HBox alignment="CENTER_LEFT">
+            <Label text="User Management" styleClass="page-title" wrapText="true"/>
+            <Region HBox.hgrow="ALWAYS"/>
+        </HBox>
+        <FlowPane hgap="10" vgap="10" alignment="CENTER_LEFT">
+            <TextField fx:id="txtSearch" promptText="Search by email or name..." prefWidth="250" minWidth="180"/>
+            <Button text="Search" onAction="#searchUsers" styleClass="primary-button"/>
+            <Button text="Clear" onAction="#clearSearch" styleClass="secondary-button"/>
+        </FlowPane>
+    </VBox>
+
+    <!-- Action Buttons -->
+    <FlowPane hgap="10" vgap="10" alignment="CENTER_LEFT">
+        <Button text="+ Add User" onAction="#showAddDialog" styleClass="action-button"/>
+        <Button text="Edit" onAction="#showEditDialog" styleClass="secondary-button"/>
+        <Button text="Delete" onAction="#deleteUser" styleClass="danger-button"/>
+        <Region HBox.hgrow="ALWAYS" minWidth="20"/>
+        <Button text="View Orders" onAction="#viewUserOrders" styleClass="secondary-button"/>
+    </FlowPane>
+
+    <!-- Users Table -->
+    <TableView fx:id="tblUsers" VBox.vgrow="ALWAYS" minHeight="200">
+        <columns>
+            <TableColumn text="Email Address" minWidth="180" prefWidth="250">
+                <cellValueFactory>
+                    <PropertyValueFactory property="emailAddress"/>
+                </cellValueFactory>
+            </TableColumn>
+            <TableColumn text="First Name" minWidth="100" prefWidth="150">
+                <cellValueFactory>
+                    <PropertyValueFactory property="firstName"/>
+                </cellValueFactory>
+            </TableColumn>
+            <TableColumn text="Last Name" minWidth="100" prefWidth="150">
+                <cellValueFactory>
+                    <PropertyValueFactory property="lastName"/>
+                </cellValueFactory>
+            </TableColumn>
+            <TableColumn text="Phone Number" minWidth="120" prefWidth="160">
+                <cellValueFactory>
+                    <PropertyValueFactory property="phoneNumber"/>
+                </cellValueFactory>
+            </TableColumn>
+        </columns>
+        <placeholder>
+            <Label text="No users found."/>
+        </placeholder>
+    </TableView>
+
+    <!-- User Stats -->
+    <FlowPane hgap="25" vgap="10" styleClass="summary-bar" alignment="CENTER_LEFT">
+        <Label fx:id="lblTotalUsers" text="Total Users: 0"/>
+    </FlowPane>
+</VBox>
+

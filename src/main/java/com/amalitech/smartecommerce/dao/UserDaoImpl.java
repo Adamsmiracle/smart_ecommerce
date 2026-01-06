@@ -106,15 +106,97 @@ public class UserDaoImpl implements UserDao {
 
     @Override
     public boolean delete(UUID id) {
-        String sql = "DELETE FROM app_user WHERE id = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, id);
-            return stmt.executeUpdate() > 0;
+        Connection conn = null;
+        try {
+            conn = DBConnection.getConnection();
+            conn.setAutoCommit(false); // Start transaction
+
+            // Delete related records in order (respecting foreign key constraints)
+
+            // 1. Delete user reviews (references order_line which references customer_order)
+            String deleteReviews = "DELETE FROM user_review WHERE user_id = ?";
+            try (PreparedStatement stmt = conn.prepareStatement(deleteReviews)) {
+                stmt.setObject(1, id);
+                stmt.executeUpdate();
+            }
+
+            // 2. Delete order lines for user's orders
+            String deleteOrderLines = "DELETE FROM order_line WHERE order_id IN (SELECT id FROM customer_order WHERE user_id = ?)";
+            try (PreparedStatement stmt = conn.prepareStatement(deleteOrderLines)) {
+                stmt.setObject(1, id);
+                stmt.executeUpdate();
+            }
+
+            // 3. Delete customer orders
+            String deleteOrders = "DELETE FROM customer_order WHERE user_id = ?";
+            try (PreparedStatement stmt = conn.prepareStatement(deleteOrders)) {
+                stmt.setObject(1, id);
+                stmt.executeUpdate();
+            }
+
+            // 4. Delete shopping cart items
+            String deleteCartItems = "DELETE FROM shopping_cart_item WHERE cart_id IN (SELECT id FROM shopping_cart WHERE user_id = ?)";
+            try (PreparedStatement stmt = conn.prepareStatement(deleteCartItems)) {
+                stmt.setObject(1, id);
+                stmt.executeUpdate();
+            }
+
+            // 5. Delete shopping cart
+            String deleteCart = "DELETE FROM shopping_cart WHERE user_id = ?";
+            try (PreparedStatement stmt = conn.prepareStatement(deleteCart)) {
+                stmt.setObject(1, id);
+                stmt.executeUpdate();
+            }
+
+            // 6. Delete payment methods
+            String deletePayments = "DELETE FROM use_payment_method WHERE user_id = ?";
+            try (PreparedStatement stmt = conn.prepareStatement(deletePayments)) {
+                stmt.setObject(1, id);
+                stmt.executeUpdate();
+            }
+
+            // 7. Delete user addresses (should cascade but let's be explicit)
+            String deleteUserAddresses = "DELETE FROM user_address WHERE user_id = ?";
+            try (PreparedStatement stmt = conn.prepareStatement(deleteUserAddresses)) {
+                stmt.setObject(1, id);
+                stmt.executeUpdate();
+            }
+
+            // 8. Finally delete the user
+            String deleteUser = "DELETE FROM app_user WHERE id = ?";
+            try (PreparedStatement stmt = conn.prepareStatement(deleteUser)) {
+                stmt.setObject(1, id);
+                int result = stmt.executeUpdate();
+
+                if (result > 0) {
+                    conn.commit(); // Commit transaction
+                    return true;
+                } else {
+                    conn.rollback(); // Rollback if user not found
+                    return false;
+                }
+            }
+
         } catch (SQLException e) {
+            System.err.println("Error deleting user: " + e.getMessage());
             e.printStackTrace();
+            if (conn != null) {
+                try {
+                    conn.rollback(); // Rollback on error
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+            }
+            return false;
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true); // Reset auto-commit
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
         }
-        return false;
     }
 
 

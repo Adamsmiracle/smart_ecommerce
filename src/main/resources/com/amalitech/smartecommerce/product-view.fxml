@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.control.cell.PropertyValueFactory?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.amalitech.smartecommerce.controller.ProductController"
+      spacing="15" styleClass="content-panel" fillWidth="true">
+    <padding>
+        <Insets bottom="20" left="20" right="20" top="20"/>
+    </padding>
+
+    <!-- Header with Search -->
+    <VBox spacing="10">
+        <HBox alignment="CENTER_LEFT" spacing="15">
+            <Label text="Product Management" styleClass="page-title" wrapText="true"/>
+            <Region HBox.hgrow="ALWAYS"/>
+        </HBox>
+        <FlowPane hgap="10" vgap="10" alignment="CENTER_LEFT">
+            <TextField fx:id="txtSearch" promptText="Search products..." prefWidth="200" minWidth="150"/>
+            <Button text="Search" onAction="#searchProducts" styleClass="primary-button"/>
+            <Button text="Clear" onAction="#clearSearch" styleClass="secondary-button"/>
+            <ComboBox fx:id="cmbCategory" promptText="Filter by Category" prefWidth="160" minWidth="130"/>
+            <ComboBox fx:id="cmbSortBy" promptText="Sort By" prefWidth="130" minWidth="100"/>
+        </FlowPane>
+    </VBox>
+
+    <!-- Action Buttons -->
+    <FlowPane hgap="10" vgap="10" alignment="CENTER_LEFT">
+        <Button text="+ Add Product" onAction="#showAddDialog" styleClass="action-button"/>
+        <Button text="Edit" onAction="#showEditDialog" styleClass="secondary-button"/>
+        <Button text="Delete" onAction="#deleteProduct" styleClass="danger-button"/>
+        <Region HBox.hgrow="ALWAYS" minWidth="20"/>
+        <ToggleButton fx:id="btnUseCache" text="Use Cache" selected="true"/>
+        <Label fx:id="lblQueryTime" text="Query Time: 0ms" styleClass="info-label"/>
+    </FlowPane>
+
+    <!-- Products Table -->
+    <TableView fx:id="tblProducts" VBox.vgrow="ALWAYS" minHeight="200">
+        <columns>
+            <TableColumn text="Product Name" minWidth="150" prefWidth="200">
+                <cellValueFactory>
+                    <PropertyValueFactory property="name"/>
+                </cellValueFactory>
+            </TableColumn>
+            <TableColumn text="Description" minWidth="200" prefWidth="300">
+                <cellValueFactory>
+                    <PropertyValueFactory property="description"/>
+                </cellValueFactory>
+            </TableColumn>
+            <TableColumn fx:id="colCategory" text="Category" minWidth="120" prefWidth="150"/>
+            <TableColumn text="Image URL" minWidth="150" prefWidth="180">
+                <cellValueFactory>
+                    <PropertyValueFactory property="productImage"/>
+                </cellValueFactory>
+            </TableColumn>
+        </columns>
+        <placeholder>
+            <Label text="No products found. Click 'Add Product' to create one."/>
+        </placeholder>
+    </TableView>
+
+    <!-- Pagination -->
+    <FlowPane hgap="10" vgap="10" alignment="CENTER">
+        <Button fx:id="btnPrevPage" text="← Previous" onAction="#previousPage"/>
+        <Label fx:id="lblPageInfo" text="Page 1 of 1"/>
+        <Button fx:id="btnNextPage" text="Next →" onAction="#nextPage"/>
+        <Region HBox.hgrow="ALWAYS" minWidth="20"/>
+        <Label fx:id="lblTotalProducts" text="Total: 0 products"/>
+    </FlowPane>
+</VBox>
+

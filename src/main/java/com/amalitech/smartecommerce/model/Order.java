@@ -10,6 +10,7 @@ public class Order {
     private UUID paymentMethodId;
     private UUID shippingAddressId;
     private UUID shippingMethodId;
+    private String shippingMethodName; // Store shipping method name for display
     private Double orderTotal;
     private UUID orderStatus;
 
@@ -43,6 +44,9 @@ public class Order {
 
     public UUID getShippingMethodId() { return shippingMethodId; }
     public void setShippingMethodId(UUID shippingMethodId) { this.shippingMethodId = shippingMethodId; }
+
+    public String getShippingMethodName() { return shippingMethodName; }
+    public void setShippingMethodName(String shippingMethodName) { this.shippingMethodName = shippingMethodName; }
 
     public Double getOrderTotal() { return orderTotal; }
     public void setOrderTotal(Double orderTotal) { this.orderTotal = orderTotal; }

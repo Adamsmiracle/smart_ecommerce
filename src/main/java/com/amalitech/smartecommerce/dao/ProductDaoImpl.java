@@ -60,6 +60,7 @@ public class ProductDaoImpl implements ProductDao {
         return products;
     }
 
+
     @Override
     public List<Product> searchByName(String name) {
         List<Product> products = new ArrayList<>();
@@ -118,15 +119,60 @@ public class ProductDaoImpl implements ProductDao {
 
     @Override
     public boolean delete(UUID id) {
-        String sql = "DELETE FROM product WHERE id = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, id);
-            return stmt.executeUpdate() > 0;
+        Connection conn = null;
+        try {
+            conn = DBConnection.getConnection();
+            conn.setAutoCommit(false); // Start transaction
+
+            // 1. Delete from order_line where product_item references this product
+            String deleteOrderLines = "DELETE FROM order_line WHERE product_item_id IN (SELECT id FROM product_item WHERE product_id = ?)";
+            try (PreparedStatement stmt = conn.prepareStatement(deleteOrderLines)) {
+                stmt.setObject(1, id);
+                stmt.executeUpdate();
+            }
+
+            // 2. Delete product_item records for this product
+            String deleteProductItems = "DELETE FROM product_item WHERE product_id = ?";
+            try (PreparedStatement stmt = conn.prepareStatement(deleteProductItems)) {
+                stmt.setObject(1, id);
+                stmt.executeUpdate();
+            }
+
+            // 3. Delete the product
+            String deleteProduct = "DELETE FROM product WHERE id = ?";
+            try (PreparedStatement stmt = conn.prepareStatement(deleteProduct)) {
+                stmt.setObject(1, id);
+                int result = stmt.executeUpdate();
+
+                if (result > 0) {
+                    conn.commit();
+                    return true;
+                } else {
+                    conn.rollback();
+                    return false;
+                }
+            }
+
         } catch (SQLException e) {
+            System.err.println("Error deleting product: " + e.getMessage());
             e.printStackTrace();
+            if (conn != null) {
+                try {
+                    conn.rollback();
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+            }
+            return false;
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true);
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
         }
-        return false;
     }
 
     private Product mapResultSetToProduct(ResultSet rs) throws SQLException {

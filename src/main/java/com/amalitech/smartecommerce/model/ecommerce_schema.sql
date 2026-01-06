@@ -255,8 +255,12 @@ INSERT INTO product_category (id, category_name) VALUES (gen_random_uuid(), 'Ele
 INSERT INTO product_category (id, category_name) VALUES (gen_random_uuid(), 'Books');
 
 -- Users
-INSERT INTO app_user (id, email_address, first_name, last_name, phone_number, password) VALUES (gen_random_uuid(), 'john.doe@example.com', 'John', 'Doe', '1234567890', 'password123');
-INSERT INTO app_user (id, email_address, first_name, last_name, phone_number, password) VALUES (gen_random_uuid(), 'jane.smith@example.com', 'Jane', 'Smith', '0987654321', 'securepass');
+-- NOTE: For testing, register new users through the application UI which will BCrypt hash passwords.
+-- The passwords below are BCrypt hashes generated for: password123 and securepass
+-- BCrypt hash for 'password123': $2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.V4W5WBWVHxkd0L
+-- BCrypt hash for 'securepass': $2a$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi
+INSERT INTO app_user (id, email_address, first_name, last_name, phone_number, password) VALUES (gen_random_uuid(), 'john.doe@example.com', 'John', 'Doe', '1234567890', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.V4pVWBWVHxkd0L');
+INSERT INTO app_user (id, email_address, first_name, last_name, phone_number, password) VALUES (gen_random_uuid(), 'jane.smith@example.com', 'Jane', 'Smith', '0987654321', '$2a$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi');
 
 -- Addresses
 INSERT INTO address (id, unit_number, street_number, address_line, city, region, country_id) VALUES (gen_random_uuid(), 'A1', '12', 'Main Street', 'Accra', 'Greater Accra', (SELECT id FROM country WHERE country_name = 'Ghana' LIMIT 1));
@@ -285,10 +289,13 @@ INSERT INTO use_payment_method (id, user_id, payment_type_id, provider_provider,
 -- Shipping Methods
 INSERT INTO shipping_method (id, name, price) VALUES (gen_random_uuid(), 'Standard', 10.00);
 INSERT INTO shipping_method (id, name, price) VALUES (gen_random_uuid(), 'Express', 25.00);
+INSERT INTO shipping_method (id, name, price) VALUES (gen_random_uuid(), 'In_person', 0.00);
 
 -- Order Status
 INSERT INTO order_status (id, status) VALUES (gen_random_uuid(), 'Pending');
 INSERT INTO order_status (id, status) VALUES (gen_random_uuid(), 'Completed');
+INSERT INTO order_status (id, status) VALUES (gen_random_uuid(), 'Cancelled');
+
 
 -- Customer Orders
 INSERT INTO customer_order (id, user_id, order_date, payment_method_id, shipping_address_id, shipping_method_id, order_total, order_status) VALUES (
