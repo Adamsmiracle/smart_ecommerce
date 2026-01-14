@@ -44,46 +44,58 @@ public class ShippingMethodDaoImpl implements ShippingMethodDao {
     }
 
     @Override
-    public boolean insert(ShippingMethod shippingMethod) {
+    public ShippingMethod create(ShippingMethod shippingMethod) {
         String sql = "INSERT INTO shipping_method (id, name, price) VALUES (?, ?, ?)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, shippingMethod.getId() != null ? shippingMethod.getId() : UUID.randomUUID());
+            UUID id = shippingMethod.getId() != null ? shippingMethod.getId() : UUID.randomUUID();
+            stmt.setObject(1, id);
             stmt.setString(2, shippingMethod.getName());
             stmt.setDouble(3, shippingMethod.getPrice());
-            return stmt.executeUpdate() > 0;
+            if (stmt.executeUpdate() > 0) {
+                shippingMethod.setId(id);
+                return shippingMethod;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
+        return null;
     }
 
     @Override
-    public boolean update(ShippingMethod shippingMethod) {
+    public ShippingMethod update(ShippingMethod shippingMethod) {
         String sql = "UPDATE shipping_method SET name = ?, price = ? WHERE id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, shippingMethod.getName());
             stmt.setDouble(2, shippingMethod.getPrice());
             stmt.setObject(3, shippingMethod.getId());
-            return stmt.executeUpdate() > 0;
+            if (stmt.executeUpdate() > 0) {
+                return shippingMethod;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
+        return null;
     }
 
     @Override
-    public boolean delete(UUID id) {
+    public ShippingMethod delete(UUID id) {
+        ShippingMethod methodToDelete = findById(id);
+        if (methodToDelete == null) {
+            return null;
+        }
         String sql = "DELETE FROM shipping_method WHERE id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setObject(1, id);
-            return stmt.executeUpdate() > 0;
+            if (stmt.executeUpdate() > 0) {
+                return methodToDelete;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
+        return null;
     }
 
     private ShippingMethod mapResultSetToShippingMethod(ResultSet rs) throws SQLException {

@@ -4,6 +4,7 @@ import com.amalitech.smartecommerce.dao.ProductCategoryDao;
 import com.amalitech.smartecommerce.dao.ProductCategoryDaoImpl;
 import com.amalitech.smartecommerce.model.ProductCategory;
 
+import java.sql.SQLException;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,22 +25,22 @@ public class ProductCategoryServiceImpl implements ProductCategoryService {
     }
 
     @Override
-    public List<ProductCategory> getAllCategories() {
+    public List<ProductCategory> getAllCategories() throws SQLException {
         return categoryDao.findAll();
     }
 
     @Override
-    public boolean createCategory(ProductCategory category) {
-        return categoryDao.insert(category);
+    public ProductCategory createCategory(ProductCategory category) throws SQLException {
+        return categoryDao.create(category);
     }
 
     @Override
-    public boolean updateCategory(ProductCategory category) {
+    public ProductCategory updateCategory(ProductCategory category) throws SQLException {
         return categoryDao.update(category);
     }
 
     @Override
-    public boolean deleteCategory(UUID id) {
+    public ProductCategory deleteCategory(UUID id) throws SQLException {
         return categoryDao.delete(id);
     }
 }

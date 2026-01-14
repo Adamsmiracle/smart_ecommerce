@@ -168,12 +168,14 @@ public class InputValidator {
         return length >= minLength && length <= maxLength;
     }
 
+
     /**
      * Validates product name.
      */
     public static boolean isValidProductName(String name) {
         return isValidLength(name, 2, 100);
     }
+
 
     /**
      * Validates description.
@@ -182,12 +184,15 @@ public class InputValidator {
         return description == null || description.trim().length() <= 1000;
     }
 
+
     /**
      * Validates category name.
      */
     public static boolean isValidCategoryName(String name) {
         return isValidLength(name, 2, 50);
     }
+
+
 
     // ================== Error Message Methods ==================
 
@@ -213,6 +218,7 @@ public class InputValidator {
         }
         return null;
     }
+
 
     /**
      * Gets validation error message for name.

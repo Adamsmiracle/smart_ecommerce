@@ -1,13 +1,15 @@
 package com.amalitech.smartecommerce.controller;
 
+import com.amalitech.smartecommerce.constants.ValidationMessages;
+import com.amalitech.smartecommerce.dto.UserCreateDto;
 import com.amalitech.smartecommerce.exception.EmailAlreadyExistsException;
 import com.amalitech.smartecommerce.model.User;
 import com.amalitech.smartecommerce.service.UserService;
 import com.amalitech.smartecommerce.service.UserServiceImpl;
-import com.amalitech.smartecommerce.utils.DBConnection;
 import com.amalitech.smartecommerce.utils.InputValidator;
 import com.amalitech.smartecommerce.utils.SessionManager;
 import com.amalitech.smartecommerce.utils.UserUtils;
+import com.amalitech.smartecommerce.utils.ValidationUtil;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
@@ -19,6 +21,7 @@ import javafx.stage.Stage;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ResourceBundle;
+import java.util.Set;
 
 /**
  * Controller for login and registration.
@@ -32,7 +35,7 @@ public class LoginController implements Initializable {
     @FXML private Label lblError;
 
     // Register form fields
-    @FXML private VBox registerForm;
+    @FXML private ScrollPane registerFormScroll;
     @FXML private TextField txtFirstName;
     @FXML private TextField txtLastName;
     @FXML private TextField txtRegEmail;
@@ -79,18 +82,8 @@ public class LoginController implements Initializable {
             return;
         }
 
-        // Check for network/database connectivity first
-        if (!DBConnection.testConnection()) {
-            String errorMsg = DBConnection.getConnectionErrorMessage();
-            if (errorMsg != null) {
-                showError(lblError, errorMsg);
-            } else {
-                showError(lblError, "⚠️ No internet connection. Please check your network and try again.");
-            }
-            return;
-        }
 
-        // Check for regular user login (not admin from customer form)
+        // Check for regular user login
         User user;
         try {
             user = userService.getUserByEmail(email);
@@ -110,18 +103,18 @@ public class LoginController implements Initializable {
             return;
         }
 
-        // Migrate password to BCrypt if using legacy hash format
-        if (UserUtils.needsHashMigration(user.getPassword())) {
-            try {
-                String newHash = UserUtils.hashPassword(password);
-                user.setPassword(newHash);
-                userService.updateUser(user);
-                System.out.println("Password migrated to BCrypt for user: " + user.getEmailAddress());
-            } catch (Exception e) {
-                // Migration failed, but login can still proceed
-                System.err.println("Failed to migrate password: " + e.getMessage());
-            }
-        }
+//        // Migrate password to BCrypt if using legacy hash format
+//        if (UserUtils.needsHashMigration(user.getPassword())) {
+//            try {
+//                String newHash = UserUtils.hashPassword(password);
+//                user.setPassword(newHash);
+//                userService.updateUser(user);
+//                System.out.println("Password migrated to BCrypt for user: " + user.getEmailAddress());
+//            } catch (Exception e) {
+//                // Migration failed, but login can still proceed
+//                System.err.println("Failed to migrate password: " + e.getMessage());
+//            }
+//        }
 
         // Login successful
         SessionManager.getInstance().setCurrentUser(user);
@@ -140,58 +133,33 @@ public class LoginController implements Initializable {
         String password = txtRegPassword.getText();
         String confirmPassword = txtConfirmPassword.getText();
 
-        // Validate first name
-        String firstNameError = InputValidator.getNameError(firstName, "First name");
-        if (firstNameError != null) {
-            showError(lblRegError, firstNameError);
+        // Create DTO for validation
+        UserCreateDto createDto = new UserCreateDto(email, firstName, lastName, phone, password);
+
+        // Validate using Jakarta Bean Validation
+        Set<String> errors = ValidationUtil.validate(createDto);
+        if (!errors.isEmpty()) {
+            showError(lblRegError, errors.iterator().next());
             return;
         }
 
-        // Validate last name
-        String lastNameError = InputValidator.getNameError(lastName, "Last name");
-        if (lastNameError != null) {
-            showError(lblRegError, lastNameError);
+        // Validate confirm password (not in DTO since it's UI-only)
+        if (!password.equals(confirmPassword)) {
+            showError(lblRegError, ValidationMessages.PASSWORDS_NOT_MATCH);
             return;
         }
 
-        // Validate email
-        String emailError = InputValidator.getEmailError(email);
-        if (emailError != null) {
-            showError(lblRegError, emailError);
-            return;
-        }
+//        // Check for network/database connectivity first
+//        if (!DBConnection.testConnection()) {
+//            String errorMsg = DBConnection.getConnectionErrorMessage();
+//            if (errorMsg != null) {
+//                showError(lblRegError, errorMsg);
+//            } else {
+//                showError(lblRegError, "⚠️ No internet connection. Please check your network and try again.");
+//            }
+//            return;
+//        }
 
-        // Validate phone (optional but if provided must be valid)
-        String phoneError = InputValidator.getPhoneError(phone);
-        if (phoneError != null) {
-            showError(lblRegError, phoneError);
-            return;
-        }
-
-        // Validate password
-        String passwordError = InputValidator.getPasswordError(password);
-        if (passwordError != null) {
-            showError(lblRegError, passwordError);
-            return;
-        }
-
-        // Validate confirm password
-        String confirmError = InputValidator.getConfirmPasswordError(password, confirmPassword);
-        if (confirmError != null) {
-            showError(lblRegError, confirmError);
-            return;
-        }
-
-        // Check for network/database connectivity first
-        if (!DBConnection.testConnection()) {
-            String errorMsg = DBConnection.getConnectionErrorMessage();
-            if (errorMsg != null) {
-                showError(lblRegError, errorMsg);
-            } else {
-                showError(lblRegError, "⚠️ No internet connection. Please check your network and try again.");
-            }
-            return;
-        }
 
         // Check if email already exists
         try {
@@ -205,12 +173,14 @@ public class LoginController implements Initializable {
         }
 
         try {
+            // Convert DTO to User entity (inline mapping)
             User newUser = new User();
-            newUser.setFirstName(firstName);
-            newUser.setLastName(lastName);
-            newUser.setEmailAddress(email);
-            newUser.setPhoneNumber(phone);
-            newUser.setPassword(password);
+            newUser.setId(java.util.UUID.randomUUID());
+            newUser.setEmailAddress(createDto.getEmailAddress());
+            newUser.setFirstName(createDto.getFirstName());
+            newUser.setLastName(createDto.getLastName());
+            newUser.setPhoneNumber(createDto.getPhoneNumber());
+            newUser.setPassword(createDto.getPassword()); // Plain text - service will hash
 
             User createdUser = userService.createUser(newUser);
             if (createdUser != null) {
@@ -232,8 +202,8 @@ public class LoginController implements Initializable {
     public void showLoginForm() {
         loginForm.setVisible(true);
         loginForm.setManaged(true);
-        registerForm.setVisible(false);
-        registerForm.setManaged(false);
+        registerFormScroll.setVisible(false);
+        registerFormScroll.setManaged(false);
         adminLoginForm.setVisible(false);
         adminLoginForm.setManaged(false);
         hideErrors();
@@ -244,8 +214,8 @@ public class LoginController implements Initializable {
     public void showRegisterForm() {
         loginForm.setVisible(false);
         loginForm.setManaged(false);
-        registerForm.setVisible(true);
-        registerForm.setManaged(true);
+        registerFormScroll.setVisible(true);
+        registerFormScroll.setManaged(true);
         adminLoginForm.setVisible(false);
         adminLoginForm.setManaged(false);
         hideErrors();
@@ -256,8 +226,8 @@ public class LoginController implements Initializable {
     public void showAdminLoginForm() {
         loginForm.setVisible(false);
         loginForm.setManaged(false);
-        registerForm.setVisible(false);
-        registerForm.setManaged(false);
+        registerFormScroll.setVisible(false);
+        registerFormScroll.setManaged(false);
         adminLoginForm.setVisible(true);
         adminLoginForm.setManaged(true);
         hideErrors();
@@ -285,15 +255,15 @@ public class LoginController implements Initializable {
         }
 
         // Check for network/database connectivity first (admin needs DB access)
-        if (!DBConnection.testConnection()) {
-            String errorMsg = DBConnection.getConnectionErrorMessage();
-            if (errorMsg != null) {
-                showError(lblAdminError, errorMsg);
-            } else {
-                showError(lblAdminError, "⚠️ No internet connection. Please check your network and try again.");
-            }
-            return;
-        }
+//        if (!DBConnection.testConnection()) {
+//            String errorMsg = DBConnection.getConnectionErrorMessage();
+//            if (errorMsg != null) {
+//                showError(lblAdminError, errorMsg);
+//            } else {
+//                showError(lblAdminError, "⚠️ No internet connection. Please check your network and try again.");
+//            }
+//            return;
+//        }
 
         // Verify admin credentials
         if (email.equalsIgnoreCase(ADMIN_EMAIL) && password.equals(ADMIN_PASSWORD)) {

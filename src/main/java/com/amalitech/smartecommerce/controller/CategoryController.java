@@ -189,9 +189,9 @@ public class CategoryController implements Initializable {
                 if (category.getId() == null) {
                     category.setId(UUID.randomUUID());
                 }
-                boolean created = categoryService.createCategory(category);
-                if (created) {
-                    categoryCache.put(category);
+                ProductCategory created = categoryService.createCategory(category);
+                if (created != null) {
+                    categoryCache.put(created);
                     loadCategories();
                     showAlert(Alert.AlertType.INFORMATION, "Success", "Category created successfully!");
                 }
@@ -214,9 +214,9 @@ public class CategoryController implements Initializable {
 
         result.ifPresent(category -> {
             try {
-                boolean updated = categoryService.updateCategory(category);
-                if (updated) {
-                    categoryCache.update(category);
+                ProductCategory updated = categoryService.updateCategory(category);
+                if (updated != null) {
+                    categoryCache.update(updated);
                     loadCategories();
                     showAlert(Alert.AlertType.INFORMATION, "Success", "Category updated successfully!");
                 }
@@ -266,16 +266,16 @@ public class CategoryController implements Initializable {
             buildTree(new ArrayList<>(categoryList));
 
             // Delete from database in background
-            Task<Boolean> deleteTask = new Task<>() {
+            Task<ProductCategory> deleteTask = new Task<>() {
                 @Override
-                protected Boolean call() throws Exception {
+                protected ProductCategory call() throws Exception {
                     return categoryService.deleteCategory(deletedCategory.getId());
                 }
 
                 @Override
                 protected void succeeded() {
                     Platform.runLater(() -> {
-                        if (getValue()) {
+                        if (getValue() != null) {
                             showAlert(Alert.AlertType.INFORMATION, "Success", "Category deleted successfully!");
                         } else {
                             // Rollback on failure

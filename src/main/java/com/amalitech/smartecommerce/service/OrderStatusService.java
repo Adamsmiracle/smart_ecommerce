@@ -9,8 +9,8 @@ public interface OrderStatusService {
     OrderStatus getOrderStatusById(UUID id);
     List<OrderStatus> getAllOrderStatuses();
     OrderStatus getOrderStatusByName(String status);
-    boolean createOrderStatus(OrderStatus orderStatus);
-    boolean updateOrderStatus(OrderStatus orderStatus);
-    boolean deleteOrderStatus(UUID id);
+    OrderStatus createOrderStatus(OrderStatus orderStatus);
+    OrderStatus updateOrderStatus(OrderStatus orderStatus);
+    OrderStatus deleteOrderStatus(UUID id);
 }
 

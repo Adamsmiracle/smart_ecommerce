@@ -5,7 +5,6 @@ import java.util.UUID;
 public class Country {
     private UUID id;
     private String countryName;
-
     public Country() {}
 
     public Country(UUID id, String countryName) {

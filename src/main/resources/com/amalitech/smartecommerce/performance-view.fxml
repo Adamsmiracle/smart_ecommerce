@@ -5,12 +5,14 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="com.amalitech.smartecommerce.controller.PerformanceController"
-      spacing="15" styleClass="content-panel" fillWidth="true">
-    <padding>
-        <Insets bottom="20" left="20" right="20" top="20"/>
-    </padding>
+<ScrollPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.amalitech.smartecommerce.controller.PerformanceController"
+            fitToWidth="true" fitToHeight="true"
+            hbarPolicy="AS_NEEDED" vbarPolicy="AS_NEEDED">
+    <VBox spacing="15" styleClass="content-panel" fillWidth="true">
+        <padding>
+            <Insets bottom="20" left="20" right="20" top="20"/>
+        </padding>
 
     <!-- Header -->
     <FlowPane hgap="15" vgap="10" alignment="CENTER_LEFT">
@@ -106,5 +108,6 @@
         <Label text="Performance Report" styleClass="section-title"/>
         <TextArea fx:id="txtReport" prefHeight="150" minHeight="100" editable="false" wrapText="true"/>
     </VBox>
-</VBox>
+    </VBox>
+</ScrollPane>
 

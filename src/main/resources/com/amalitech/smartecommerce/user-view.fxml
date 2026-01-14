@@ -5,12 +5,14 @@
 <?import javafx.scene.control.cell.PropertyValueFactory?>
 <?import javafx.scene.layout.*?>
 
-<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="com.amalitech.smartecommerce.controller.UserController"
-      spacing="15" styleClass="content-panel" fillWidth="true">
-    <padding>
-        <Insets bottom="20" left="20" right="20" top="20"/>
-    </padding>
+<ScrollPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.amalitech.smartecommerce.controller.UserController"
+            fitToWidth="true" fitToHeight="true"
+            hbarPolicy="AS_NEEDED" vbarPolicy="AS_NEEDED">
+    <VBox spacing="15" styleClass="content-panel" fillWidth="true">
+        <padding>
+            <Insets bottom="20" left="20" right="20" top="20"/>
+        </padding>
 
     <!-- Header with Search -->
     <VBox spacing="10">
@@ -67,5 +69,6 @@
     <FlowPane hgap="25" vgap="10" styleClass="summary-bar" alignment="CENTER_LEFT">
         <Label fx:id="lblTotalUsers" text="Total Users: 0"/>
     </FlowPane>
-</VBox>
+    </VBox>
+</ScrollPane>
 

@@ -8,8 +8,8 @@ import java.util.UUID;
 public interface ShippingMethodService {
     ShippingMethod getShippingMethodById(UUID id);
     List<ShippingMethod> getAllShippingMethods();
-    boolean createShippingMethod(ShippingMethod shippingMethod);
-    boolean updateShippingMethod(ShippingMethod shippingMethod);
-    boolean deleteShippingMethod(UUID id);
+    ShippingMethod createShippingMethod(ShippingMethod shippingMethod);
+    ShippingMethod updateShippingMethod(ShippingMethod shippingMethod);
+    ShippingMethod deleteShippingMethod(UUID id);
 }
 

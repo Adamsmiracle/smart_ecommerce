@@ -6,11 +6,11 @@ import com.amalitech.smartecommerce.model.UserReview;
 
 
 public interface UserReviewService {
-    boolean deleteUserReview(UUID id);
+    UserReview deleteUserReview(UUID id);
 
-    boolean updateUserReview(UserReview review);
+    UserReview updateUserReview(UserReview review);
 
-    boolean createUserReview(UserReview review);
+    UserReview createUserReview(UserReview review);
 
     List<UserReview> getUserReviewsByOrderedProductId(UUID orderedProductId);
 

@@ -19,6 +19,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
 import java.net.URL;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -61,7 +62,11 @@ public class InventoryController implements Initializable {
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         setupTable();
-        setupFilters();
+        try {
+            setupFilters();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
         loadInventory();
     }
 
@@ -105,31 +110,18 @@ public class InventoryController implements Initializable {
 
         // Actions column
         colActions.setCellFactory(column -> new TableCell<>() {
-            private final Button editBtn = new Button("Edit");
-            private final Button addBtn = new Button("+");
-            private final Button removeBtn = new Button("-");
-            private final HBox actionBox = new HBox(5, removeBtn, addBtn, editBtn);
+            private final Button editBtn = new Button("Edit qty");
+            private final HBox actionBox = new HBox(5, editBtn);
 
             {
                 actionBox.setAlignment(Pos.CENTER);
                 editBtn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-padding: 3 10; -fx-cursor: hand;");
-                addBtn.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-padding: 3 10; -fx-cursor: hand;");
-                removeBtn.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-padding: 3 10; -fx-cursor: hand;");
 
                 editBtn.setOnAction(e -> {
                     InventoryItem item = getTableView().getItems().get(getIndex());
                     showEditQuantityDialog(item);
                 });
 
-                addBtn.setOnAction(e -> {
-                    InventoryItem item = getTableView().getItems().get(getIndex());
-                    adjustQuantity(item, 1);
-                });
-
-                removeBtn.setOnAction(e -> {
-                    InventoryItem item = getTableView().getItems().get(getIndex());
-                    adjustQuantity(item, -1);
-                });
             }
 
             @Override
@@ -140,21 +132,31 @@ public class InventoryController implements Initializable {
         });
     }
 
-    private void setupFilters() {
-        // Stock status filter
-        cmbStockFilter.setItems(FXCollections.observableArrayList(
-            "All", "In Stock", "Low Stock", "Out of Stock"
-        ));
-        cmbStockFilter.setValue("All");
+    private void setupFilters() throws SQLException {
+        // ... stock status filter code remains same ...
 
-        // Category filter
-        List<ProductCategory> categories = categoryCache.getAll();
-        if (categories.isEmpty()) {
-            categories = categoryService.getAllCategories();
+        // 1. Fetch categories
+        List<ProductCategory> categoriesFromDb = categoryCache.getAll();
+        if (categoriesFromDb.isEmpty()) {
+            categoriesFromDb = categoryService.getAllCategories();
         }
-        cmbCategoryFilter.setItems(FXCollections.observableArrayList(categories));
 
-        // Custom display for categories
+        // 2. Create the "All Categories" option
+        ProductCategory allCategory = new ProductCategory();
+        allCategory.setCategoryName("All Categories");
+        // We leave ID null or set a specific value to identify it as the "All" flag
+
+        // 3. Create the list and add "All" at the very top
+        ObservableList<ProductCategory> categoryList = FXCollections.observableArrayList();
+        categoryList.add(allCategory);
+        categoryList.addAll(categoriesFromDb);
+
+        cmbCategoryFilter.setItems(categoryList);
+
+        // 4. Set "All Categories" as the default starting selection
+        cmbCategoryFilter.setValue(allCategory);
+
+        // 5. Standardize display logic
         cmbCategoryFilter.setCellFactory(lv -> new ListCell<>() {
             @Override
             protected void updateItem(ProductCategory item, boolean empty) {
@@ -162,6 +164,7 @@ public class InventoryController implements Initializable {
                 setText(empty || item == null ? null : item.getCategoryName());
             }
         });
+
         cmbCategoryFilter.setButtonCell(new ListCell<>() {
             @Override
             protected void updateItem(ProductCategory item, boolean empty) {
@@ -260,33 +263,31 @@ public class InventoryController implements Initializable {
         String searchText = txtSearch.getText().toLowerCase().trim();
 
         List<InventoryItem> filtered = allInventoryItems.stream()
-            .filter(item -> {
-                // Stock status filter
-                if (stockFilter != null && !"All".equals(stockFilter)) {
-                    if (!item.getStatus().equals(stockFilter)) {
-                        return false;
+                .filter(item -> {
+                    // Stock filter
+                    if (stockFilter != null && !"All".equals(stockFilter)) {
+                        if (!item.getStatus().equals(stockFilter)) return false;
                     }
-                }
-                // Category filter
-                if (categoryFilter != null) {
-                    if (!item.getCategoryName().equals(categoryFilter.getCategoryName())) {
-                        return false;
+
+                    // FIXED Category logic:
+                    // Only filter if a category is selected AND it isn't the "All Categories" option
+                    if (categoryFilter != null && !"All Categories".equals(categoryFilter.getCategoryName())) {
+                        if (!item.getCategoryName().equals(categoryFilter.getCategoryName())) {
+                            return false;
+                        }
                     }
-                }
-                // Search filter
-                if (!searchText.isEmpty()) {
-                    if (!item.getProductName().toLowerCase().contains(searchText)) {
-                        return false;
+
+                    // Search filter
+                    if (!searchText.isEmpty()) {
+                        if (!item.getProductName().toLowerCase().contains(searchText)) return false;
                     }
-                }
-                return true;
-            })
-            .collect(Collectors.toList());
+                    return true;
+                })
+                .collect(Collectors.toList());
 
         inventoryList.setAll(filtered);
         lblInventorySummary.setText("Showing " + filtered.size() + " of " + allInventoryItems.size() + " items");
     }
-
     @FXML
     public void clearFilters() {
         cmbStockFilter.setValue("All");
@@ -299,7 +300,7 @@ public class InventoryController implements Initializable {
     @FXML
     public void refreshInventory() {
         loadInventory();
-        showAlert(Alert.AlertType.INFORMATION, "Refreshed", "Inventory data has been refreshed.");
+        showAlert(Alert.AlertType.ERROR, "Refreshed", "Inventory data has been refreshed.");
     }
 
     @FXML
@@ -392,11 +393,6 @@ public class InventoryController implements Initializable {
         });
     }
 
-    @FXML
-    public void bulkImport() {
-        showAlert(Alert.AlertType.INFORMATION, "Bulk Import",
-            "Bulk import functionality coming soon!\n\nThis feature will allow you to import inventory data from CSV or Excel files.");
-    }
 
     private void showEditQuantityDialog(InventoryItem item) {
         TextInputDialog dialog = new TextInputDialog(String.valueOf(item.getQuantity()));

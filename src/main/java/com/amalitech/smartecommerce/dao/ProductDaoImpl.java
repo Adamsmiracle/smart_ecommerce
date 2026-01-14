@@ -80,7 +80,7 @@ public class ProductDaoImpl implements ProductDao {
     }
 
     @Override
-    public Product insert(Product product) {
+    public Product create(Product product) {
         String sql = "INSERT INTO product (id, category_id, name, description, product_image) VALUES (?, ?, ?, ?, ?)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -118,8 +118,12 @@ public class ProductDaoImpl implements ProductDao {
     }
 
     @Override
-    public boolean delete(UUID id) {
+    public Product delete(UUID id) {
         Connection conn = null;
+        Product productToDelete = findById(id);
+        if (productToDelete == null) {
+            return null;
+        }
         try {
             conn = DBConnection.getConnection();
             conn.setAutoCommit(false); // Start transaction
@@ -146,10 +150,10 @@ public class ProductDaoImpl implements ProductDao {
 
                 if (result > 0) {
                     conn.commit();
-                    return true;
+                    return productToDelete;
                 } else {
                     conn.rollback();
-                    return false;
+                    return null;
                 }
             }
 
@@ -163,7 +167,7 @@ public class ProductDaoImpl implements ProductDao {
                     ex.printStackTrace();
                 }
             }
-            return false;
+            return null;
         } finally {
             if (conn != null) {
                 try {

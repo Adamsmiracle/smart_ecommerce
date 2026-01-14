@@ -22,17 +22,17 @@ public class ShippingMethodServiceImpl implements ShippingMethodService {
     }
 
     @Override
-    public boolean createShippingMethod(ShippingMethod shippingMethod) {
-        return shippingMethodDao.insert(shippingMethod);
+    public ShippingMethod createShippingMethod(ShippingMethod shippingMethod) {
+        return shippingMethodDao.create(shippingMethod);
     }
 
     @Override
-    public boolean updateShippingMethod(ShippingMethod shippingMethod) {
+    public ShippingMethod updateShippingMethod(ShippingMethod shippingMethod) {
         return shippingMethodDao.update(shippingMethod);
     }
 
     @Override
-    public boolean deleteShippingMethod(UUID id) {
+    public ShippingMethod deleteShippingMethod(UUID id) {
         return shippingMethodDao.delete(id);
     }
 }

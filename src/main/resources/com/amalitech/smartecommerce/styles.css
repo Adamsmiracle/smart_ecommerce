@@ -18,6 +18,7 @@
 
 .login-logo {
     -fx-font-size: 48px;
+
 }
 
 .login-title {
@@ -106,6 +107,7 @@
 }
 
 .admin-form {
+    -fx-background-color: white;
     -fx-border-color: #2c3e50;
     -fx-border-width: 2;
     -fx-border-radius: 15;
@@ -206,10 +208,10 @@
 .nav-button {
     -fx-background-color: rgba(0,0,0,0.2);
     -fx-text-fill: white;
-    -fx-padding: 10 18;
+    -fx-padding: 5 10;
     -fx-cursor: hand;
     -fx-background-radius: 8;
-    -fx-font-size: 13px;
+    -fx-font-size: 12px;
     -fx-font-weight: bold;
     -fx-border-color: rgba(255,255,255,0.4);
     -fx-border-radius: 8;
@@ -230,15 +232,11 @@
 }
 
 /* Ensure all nav buttons reset to default when not active */
-.nav-button:not(.nav-button-active) {
-    -fx-background-color: rgba(0,0,0,0.2);
-    -fx-text-fill: white;
-}
 
 .logout-button {
     -fx-background-color: rgba(231,76,60,0.8);
     -fx-text-fill: white;
-    -fx-padding: 8 16;
+    -fx-padding: 4 8;
     -fx-background-radius: 6;
     -fx-cursor: hand;
 }
@@ -346,7 +344,7 @@
 .quick-action-btn {
     -fx-background-color: linear-gradient(to bottom, #3498db, #2980b9);
     -fx-text-fill: white;
-    -fx-padding: 12 25;
+    -fx-padding: 8 15;
     -fx-background-radius: 8;
     -fx-font-size: 14px;
     -fx-cursor: hand;
@@ -807,10 +805,41 @@
 /* ========== Scroll Pane ========== */
 .scroll-pane {
     -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
 }
 
 .scroll-pane > .viewport {
     -fx-background-color: transparent;
+}
+
+.scroll-pane .scroll-bar {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane .scroll-bar .thumb {
+    -fx-background-color: rgba(100, 100, 100, 0.4);
+    -fx-background-radius: 4;
+}
+
+.scroll-pane .scroll-bar .thumb:hover {
+    -fx-background-color: rgba(100, 100, 100, 0.6);
+}
+
+.scroll-pane .scroll-bar .track {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane .scroll-bar .increment-button,
+.scroll-pane .scroll-bar .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.scroll-pane .scroll-bar .increment-arrow,
+.scroll-pane .scroll-bar .decrement-arrow {
+    -fx-shape: "";
+    -fx-padding: 0;
 }
 
 /* ========== Split Pane ========== */
@@ -1193,6 +1222,7 @@
     -fx-alignment: TOP_CENTER;
     -fx-spacing: 15;
 }
+
 
 /* Responsive FlowPane for cards */
 .responsive-flow {

@@ -63,7 +63,7 @@ public class UserDaoImpl implements UserDao {
 
 
     @Override
-    public User insert(User user) {
+    public User create(User user) {
         String sql = "INSERT INTO app_user (id, email_address, first_name, last_name, phone_number, password) VALUES (?, ?, ?, ?, ?, ?)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -105,8 +105,12 @@ public class UserDaoImpl implements UserDao {
 
 
     @Override
-    public boolean delete(UUID id) {
+    public User delete(UUID id) {
         Connection conn = null;
+        User userToDelete = findById(id);
+        if (userToDelete == null) {
+            return null;
+        }
         try {
             conn = DBConnection.getConnection();
             conn.setAutoCommit(false); // Start transaction
@@ -170,10 +174,10 @@ public class UserDaoImpl implements UserDao {
 
                 if (result > 0) {
                     conn.commit(); // Commit transaction
-                    return true;
+                    return userToDelete;
                 } else {
                     conn.rollback(); // Rollback if user not found
-                    return false;
+                    return null;
                 }
             }
 
@@ -187,7 +191,7 @@ public class UserDaoImpl implements UserDao {
                     ex.printStackTrace();
                 }
             }
-            return false;
+            return null;
         } finally {
             if (conn != null) {
                 try {

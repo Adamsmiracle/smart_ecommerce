@@ -14,6 +14,8 @@ module com.amalitech.smartecommerce {
     requires java.dotenv;
     requires jbcrypt;
     requires jjwt.api;
+    requires jakarta.validation;
+    requires org.hibernate.validator;
 
     opens com.amalitech.smartecommerce to javafx.fxml;
     exports com.amalitech.smartecommerce.app;
@@ -27,4 +29,6 @@ module com.amalitech.smartecommerce {
     exports com.amalitech.smartecommerce.cache;
     exports com.amalitech.smartecommerce.utils;
     exports com.amalitech.smartecommerce.exception;
+    exports com.amalitech.smartecommerce.dto;
+    opens com.amalitech.smartecommerce.dto to org.hibernate.validator;
 }

@@ -79,7 +79,7 @@ public class UserReviewDaoImpl implements UserReviewDao {
     }
 
     @Override
-    public boolean insert(UserReview review) {
+    public UserReview create(UserReview review) {
         String sql = "INSERT INTO user_review (id, user_id, ordered_product_id, rating_value, comment) VALUES (?, ?, ?, ?, ?)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -88,15 +88,17 @@ public class UserReviewDaoImpl implements UserReviewDao {
             stmt.setObject(3, review.getOrderedProductId());
             stmt.setObject(4, review.getRatingValue());
             stmt.setString(5, review.getComment());
-            return stmt.executeUpdate() > 0;
+            if (stmt.executeUpdate() > 0) {
+                return review;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
+        return null;
     }
 
     @Override
-    public boolean update(UserReview review) {
+    public UserReview update(UserReview review) {
         String sql = "UPDATE user_review SET user_id = ?, ordered_product_id = ?, rating_value = ?, comment = ? WHERE id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -105,24 +107,32 @@ public class UserReviewDaoImpl implements UserReviewDao {
             stmt.setObject(3, review.getRatingValue());
             stmt.setString(4, review.getComment());
             stmt.setObject(5, review.getId());
-            return stmt.executeUpdate() > 0;
+            if (stmt.executeUpdate() > 0) {
+                return review;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
+        return null;
     }
 
     @Override
-    public boolean delete(UUID id) {
+    public UserReview delete(UUID id) {
+        UserReview reviewToDelete = findById(id);
+        if (reviewToDelete == null) {
+            return null;
+        }
         String sql = "DELETE FROM user_review WHERE id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setObject(1, id);
-            return stmt.executeUpdate() > 0;
+            if (stmt.executeUpdate() > 0) {
+                return reviewToDelete;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
+        return null;
     }
 
     private UserReview mapResultSetToUserReview(ResultSet rs) throws SQLException {

@@ -39,17 +39,17 @@ public class UserReviewServiceImpl implements UserReviewService {
     }
 
     @Override
-    public boolean createUserReview(UserReview review) {
-        return userReviewDao.insert(review);
+    public UserReview createUserReview(UserReview review) {
+        return userReviewDao.create(review);
     }
 
     @Override
-    public boolean updateUserReview(UserReview review) {
+    public UserReview updateUserReview(UserReview review) {
         return userReviewDao.update(review);
     }
 
     @Override
-    public boolean deleteUserReview(UUID id) {
+    public UserReview deleteUserReview(UUID id) {
         return userReviewDao.delete(id);
     }
 }

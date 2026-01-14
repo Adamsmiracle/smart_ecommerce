@@ -61,44 +61,54 @@ public class ShoppingCartDaoImpl implements ShoppingCartDao {
     }
 
     @Override
-    public boolean insert(ShoppingCart cart) {
+    public ShoppingCart create(ShoppingCart cart) {
         String sql = "INSERT INTO shopping_cart (id, user_id) VALUES (?, ?)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setObject(1, cart.getId());
             stmt.setObject(2, cart.getUserId());
-            return stmt.executeUpdate() > 0;
+            if (stmt.executeUpdate() > 0) {
+                return cart;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
+        return null;
     }
 
     @Override
-    public boolean update(ShoppingCart cart) {
+    public ShoppingCart update(ShoppingCart cart) {
         String sql = "UPDATE shopping_cart SET user_id = ? WHERE id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setObject(1, cart.getUserId());
             stmt.setObject(2, cart.getId());
-            return stmt.executeUpdate() > 0;
+            if (stmt.executeUpdate() > 0) {
+                return cart;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
+        return null;
     }
 
     @Override
-    public boolean delete(UUID id) {
+    public ShoppingCart delete(UUID id) {
+        ShoppingCart cartToDelete = findById(id);
+        if (cartToDelete == null) {
+            return null;
+        }
         String sql = "DELETE FROM shopping_cart WHERE id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setObject(1, id);
-            return stmt.executeUpdate() > 0;
+            if (stmt.executeUpdate() > 0) {
+                return cartToDelete;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
+        return null;
     }
 
     private ShoppingCart mapResultSetToShoppingCart(ResultSet rs) throws SQLException {

@@ -157,13 +157,9 @@ public class ProductController implements Initializable {
         long startTime = System.currentTimeMillis();
         List<Product> results;
 
-        if (btnUseCache != null && btnUseCache.isSelected()) {
-            results = perfMonitor.measureCacheOperation("Search Products: " + query,
-                () -> productCache.searchByName(query));
-        } else {
-            results = perfMonitor.measureDbOperation("Search Products: " + query,
-                () -> productService.searchProductsByName(query));
-        }
+
+            results = productService.searchProductsByName(query);
+
 
         long queryTime = System.currentTimeMillis() - startTime;
         lblQueryTime.setText(String.format("Query Time: %d ms", queryTime));
@@ -351,16 +347,16 @@ public class ProductController implements Initializable {
             lblTotalProducts.setText(String.format("Total: %d products", allFilteredProducts.size()));
 
             // Delete from database in background
-            Task<Boolean> deleteTask = new Task<>() {
+            Task<Product> deleteTask = new Task<>() {
                 @Override
-                protected Boolean call() throws Exception {
+                protected Product call() throws Exception {
                     return productService.deleteProduct(deletedProduct.getId());
                 }
 
                 @Override
                 protected void succeeded() {
                     Platform.runLater(() -> {
-                        if (getValue()) {
+                        if (getValue() != null) {
                             showAlert(Alert.AlertType.INFORMATION, "Success", "Product deleted successfully!");
                         } else {
                             // Rollback UI if delete failed

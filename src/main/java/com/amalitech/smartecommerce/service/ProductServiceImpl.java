@@ -63,7 +63,7 @@ public class ProductServiceImpl implements ProductService {
             product.setId(UUID.randomUUID());
         }
 
-        Product created = productDao.insert(product);
+        Product created = productDao.create(product);
 
         // Also create a default product_item record for this product
         if (created != null) {
@@ -97,7 +97,7 @@ public class ProductServiceImpl implements ProductService {
             product.setId(UUID.randomUUID());
         }
 
-        Product created = productDao.insert(product);
+        Product created = productDao.create(product);
 
         // Create product_item record with the specified price and stock
         if (created != null) {
@@ -142,7 +142,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public boolean deleteProduct(UUID id) {
+    public Product deleteProduct(UUID id) {
         if (id == null) {
             throw new IllegalArgumentException("Product ID cannot be null");
         }

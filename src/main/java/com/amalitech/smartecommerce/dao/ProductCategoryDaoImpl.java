@@ -43,46 +43,56 @@ public class ProductCategoryDaoImpl implements ProductCategoryDao {
     }
 
     @Override
-    public boolean insert(ProductCategory category) {
+    public ProductCategory create(ProductCategory category) {
         String sql = "INSERT INTO product_category (id, parent_category_id, category_name) VALUES (?, ?, ?)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setObject(1, category.getId());
             stmt.setObject(2, category.getParentCategoryId());
             stmt.setString(3, category.getCategoryName());
-            return stmt.executeUpdate() > 0;
+            if (stmt.executeUpdate() > 0) {
+                return category;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
+        return null;
     }
 
     @Override
-    public boolean update(ProductCategory category) {
+    public ProductCategory update(ProductCategory category) {
         String sql = "UPDATE product_category SET parent_category_id = ?, category_name = ? WHERE id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setObject(1, category.getParentCategoryId());
             stmt.setString(2, category.getCategoryName());
             stmt.setObject(3, category.getId());
-            return stmt.executeUpdate() > 0;
+            if (stmt.executeUpdate() > 0) {
+                return category;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
+        return null;
     }
 
     @Override
-    public boolean delete(UUID id) {
+    public ProductCategory delete(UUID id) {
+        ProductCategory categoryToDelete = findById(id);
+        if (categoryToDelete == null) {
+            return null;
+        }
         String sql = "DELETE FROM product_category WHERE id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setObject(1, id);
-            return stmt.executeUpdate() > 0;
+            if (stmt.executeUpdate() > 0) {
+                return categoryToDelete;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
+        return null;
     }
 
     private ProductCategory mapResultSetToProductCategory(ResultSet rs) throws SQLException {

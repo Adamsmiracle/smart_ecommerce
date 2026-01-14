@@ -7,13 +7,11 @@ import com.amalitech.smartecommerce.model.User;
  */
 public class SessionManager {
     private static SessionManager instance;
-
     private User currentUser;
     private boolean isAdmin;
 
     private SessionManager() {}
-
-    public static synchronized SessionManager getInstance() {
+    public static SessionManager getInstance() {
         if (instance == null) {
             instance = new SessionManager();
         }

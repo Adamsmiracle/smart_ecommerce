@@ -18,7 +18,9 @@ import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
 import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -29,6 +31,7 @@ import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.ResourceBundle;
 
 /**
@@ -144,7 +147,7 @@ public class AdminDashboardController implements Initializable {
                     lblCategoryCount.setText(String.valueOf(categoryCount));
                     lblOrderCount.setText(String.valueOf(orderCount));
                     lblUserCount.setText(String.valueOf(userCount));
-                    updateCacheStatus();
+//                    updateCacheStatus();
                     setStatus("Dashboard loaded successfully");
                 });
             }
@@ -176,6 +179,7 @@ public class AdminDashboardController implements Initializable {
 
     @FXML
     public void showDashboard() {
+        System.out.println("DEBUG: showDashboard() called");
         showView(dashboardView);
         loadDataAsync();
         setActiveButton(btnDashboard);
@@ -192,81 +196,108 @@ public class AdminDashboardController implements Initializable {
             setActiveButton(btnProducts);
             setStatus("Viewing products");
         } catch (IOException e) {
+            System.err.println("ERROR: Failed to load product view");
+            e.printStackTrace();
             setStatus("Error loading product view: " + e.getMessage());
         }
     }
 
     @FXML
     public void showCategories() {
+        System.out.println("DEBUG: showCategories() called");
         try {
             if (categoryView == null) {
+                System.out.println("DEBUG: Loading category-view.fxml...");
                 FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/amalitech/smartecommerce/category-view.fxml"));
                 categoryView = loader.load();
+                System.out.println("DEBUG: category-view.fxml loaded successfully");
             }
             showView(categoryView);
             setActiveButton(btnCategories);
             setStatus("Viewing categories");
         } catch (IOException e) {
+            System.err.println("ERROR: Failed to load category view");
+            e.printStackTrace();
             setStatus("Error loading category view: " + e.getMessage());
         }
     }
 
     @FXML
     public void showInventory() {
+        System.out.println("DEBUG: showInventory() called");
         try {
             if (inventoryView == null) {
+                System.out.println("DEBUG: Loading inventory-view.fxml...");
                 FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/amalitech/smartecommerce/inventory-view.fxml"));
                 inventoryView = loader.load();
+                System.out.println("DEBUG: inventory-view.fxml loaded successfully");
             }
             showView(inventoryView);
             setActiveButton(btnInventory);
             setStatus("Viewing inventory");
         } catch (IOException e) {
+            System.err.println("ERROR: Failed to load inventory view");
+            e.printStackTrace();
             setStatus("Error loading inventory view: " + e.getMessage());
         }
     }
 
     @FXML
     public void showOrders() {
+        System.out.println("DEBUG: showOrders() called");
         try {
             if (orderView == null) {
+                System.out.println("DEBUG: Loading order-view.fxml...");
                 FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/amalitech/smartecommerce/order-view.fxml"));
                 orderView = loader.load();
+                System.out.println("DEBUG: order-view.fxml loaded successfully");
             }
             showView(orderView);
             setActiveButton(btnOrders);
             setStatus("Viewing orders");
         } catch (IOException e) {
+            System.err.println("ERROR: Failed to load order view");
+            e.printStackTrace();
             setStatus("Error loading order view: " + e.getMessage());
         }
     }
 
     @FXML
     public void showUsers() {
+        System.out.println("DEBUG: showUsers() called");
         try {
             if (userView == null) {
+                System.out.println("DEBUG: Loading user-view.fxml...");
                 FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/amalitech/smartecommerce/user-view.fxml"));
                 userView = loader.load();
+                System.out.println("DEBUG: user-view.fxml loaded successfully");
             }
             showView(userView);
             setActiveButton(btnUsers);
             setStatus("Viewing users");
         } catch (IOException e) {
+            System.err.println("ERROR: Failed to load user view");
+            e.printStackTrace();
             setStatus("Error loading user view: " + e.getMessage());
         }
     }
 
     @FXML
     public void showPerformance() {
+        System.out.println("DEBUG: showPerformance() called");
         try {
             if (performanceView == null) {
+                System.out.println("DEBUG: Loading performance-view.fxml...");
                 FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/amalitech/smartecommerce/performance-view.fxml"));
                 performanceView = loader.load();
+                System.out.println("DEBUG: performance-view.fxml loaded successfully");
             }
             showView(performanceView);
             setActiveButton(btnPerformance);
             setStatus("Viewing performance metrics");
         } catch (IOException e) {
+            System.err.println("ERROR: Failed to load performance view");
+            e.printStackTrace();
             setStatus("Error loading performance view: " + e.getMessage());
         }
     }
@@ -306,8 +337,17 @@ public class AdminDashboardController implements Initializable {
     }
 
     private void showView(Node view) {
+        if (view == null) {
+            System.err.println("ERROR: Attempted to show null view");
+            return;
+        }
+        if (contentArea == null) {
+            System.err.println("ERROR: contentArea is null!");
+            return;
+        }
         contentArea.getChildren().clear();
         contentArea.getChildren().add(view);
+        System.out.println("DEBUG: View displayed - " + view.getClass().getSimpleName());
     }
 
     private void setActiveButton(Button activeBtn) {

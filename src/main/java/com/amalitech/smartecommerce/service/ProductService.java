@@ -20,5 +20,5 @@ public interface ProductService {
 
     Product updateProduct(Product product);
 
-    boolean deleteProduct(UUID id);
+    Product deleteProduct(UUID id);
 }

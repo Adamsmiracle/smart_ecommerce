@@ -4,6 +4,7 @@ import com.amalitech.smartecommerce.dao.ShoppingCartDao;
 import com.amalitech.smartecommerce.dao.ShoppingCartDaoImpl;
 import com.amalitech.smartecommerce.model.ShoppingCart;
 
+import java.sql.SQLException;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,7 +25,7 @@ public class ShoppingCartServiceImpl implements ShoppingCartService {
     }
 
     @Override
-    public List<ShoppingCart> getAllShoppingCarts() {
+    public List<ShoppingCart> getAllShoppingCarts() throws SQLException {
         return shoppingCartDao.findAll();
     }
 
@@ -34,17 +35,17 @@ public class ShoppingCartServiceImpl implements ShoppingCartService {
     }
 
     @Override
-    public boolean createShoppingCart(ShoppingCart cart) {
-        return shoppingCartDao.insert(cart);
+    public ShoppingCart createShoppingCart(ShoppingCart cart) throws SQLException {
+        return shoppingCartDao.create(cart);
     }
 
     @Override
-    public boolean updateShoppingCart(ShoppingCart cart) {
+    public ShoppingCart updateShoppingCart(ShoppingCart cart) throws SQLException {
         return shoppingCartDao.update(cart);
     }
 
     @Override
-    public boolean deleteShoppingCart(UUID id) {
+    public ShoppingCart deleteShoppingCart(UUID id) throws SQLException {
         return shoppingCartDao.delete(id);
     }
 }

@@ -4,11 +4,6 @@ import java.util.UUID;
 import java.util.List;
 import com.amalitech.smartecommerce.model.User;
 
-public interface UserDao {
-    boolean delete(UUID id);
-    User update(User user);
-    User insert(User user);
+public interface UserDao extends DAO<User> {
     User findByEmail(String emailAddress);
-    List<User> findAll();
-    User findById(UUID id);
 }

@@ -4,6 +4,7 @@ import com.amalitech.smartecommerce.dao.OrderDao;
 import com.amalitech.smartecommerce.dao.OrderDaoImpl;
 import com.amalitech.smartecommerce.model.Order;
 
+import java.sql.SQLException;
 import java.util.List;
 import java.util.UUID;
 import java.time.LocalDate;
@@ -23,7 +24,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public Order getOrderById(UUID id) {
         if (id == null) throw new IllegalArgumentException("Provide order id");
-        return orderDao.findUserOrderById(id);
+        return orderDao.findById(id);
     }
 
     @Override
@@ -32,7 +33,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public boolean createOrder(Order order) {
+    public Order createOrder(Order order) throws SQLException {
         if (order == null) throw new IllegalArgumentException("Order cannot be null");
         if (order.getUserId() == null) throw new IllegalArgumentException("Order must have a userId");
         if (order.getOrderTotal() == null || order.getOrderTotal() < 0) throw new IllegalArgumentException("Order total must be non-negative");
@@ -45,7 +46,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public boolean updateOrder(Order order) {
+    public Order updateOrder(Order order) throws SQLException {
         if (order == null) throw new IllegalArgumentException("Order cannot be null");
         if (order.getId() == null) throw new IllegalArgumentException("Order id is required for update");
         if (order.getOrderTotal() == null || order.getOrderTotal() < 0) throw new IllegalArgumentException("Order total must be non-negative");
@@ -53,7 +54,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public boolean deleteOrder(UUID id) {
+    public Order deleteOrder(UUID id) {
         if (id == null) throw new IllegalArgumentException("Order id cannot be null");
         return orderDao.delete(id);
     }

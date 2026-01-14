@@ -11,7 +11,7 @@ import java.util.UUID;
 
 public class OrderDaoImpl implements OrderDao {
     @Override
-    public Order findUserOrderById(UUID id) {
+    public Order findById(UUID id) {
         String sql = "SELECT * FROM customer_order WHERE id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -44,7 +44,7 @@ public class OrderDaoImpl implements OrderDao {
     }
 
     @Override
-    public boolean create(Order order) {
+    public Order create(Order order) {
         String sql = "INSERT INTO customer_order (id, user_id, order_date, payment_method_id, shipping_address_id, shipping_method_id, order_total, order_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -56,15 +56,17 @@ public class OrderDaoImpl implements OrderDao {
             stmt.setObject(6, order.getShippingMethodId());
             stmt.setObject(7, order.getOrderTotal());
             stmt.setObject(8, order.getOrderStatus());
-            return stmt.executeUpdate() > 0;
+            if (stmt.executeUpdate() > 0) {
+                return order;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
+        return null;
     }
 
     @Override
-    public boolean update(Order order) {
+    public Order update(Order order) {
         String sql = "UPDATE customer_order SET user_id = ?, order_date = ?, payment_method_id = ?, shipping_address_id = ?, shipping_method_id = ?, order_total = ?, order_status = ? WHERE id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -76,16 +78,22 @@ public class OrderDaoImpl implements OrderDao {
             stmt.setObject(6, order.getOrderTotal());
             stmt.setObject(7, order.getOrderStatus());
             stmt.setObject(8, order.getId());
-            return stmt.executeUpdate() > 0;
+            if (stmt.executeUpdate() > 0) {
+                return order;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
+        return null;
     }
 
     @Override
-    public boolean delete(UUID id) {
+    public Order delete(UUID id) {
         Connection conn = null;
+        Order orderToDelete = findById(id);
+        if (orderToDelete == null) {
+            return null;
+        }
         try {
             conn = DBConnection.getConnection();
             conn.setAutoCommit(false); // Start transaction
@@ -105,18 +113,20 @@ public class OrderDaoImpl implements OrderDao {
                 stmt.executeUpdate();
             }
 
+
             // 3. Delete the order
             String deleteOrder = "DELETE FROM customer_order WHERE id = ?";
             try (PreparedStatement stmt = conn.prepareStatement(deleteOrder)) {
                 stmt.setObject(1, id);
                 int result = stmt.executeUpdate();
+                System.out.println("Deleted order return data: "+ result);
 
                 if (result > 0) {
                     conn.commit(); // Commit transaction
-                    return true;
+                    return orderToDelete;
                 } else {
                     conn.rollback(); // Rollback if order not found
-                    return false;
+                    return null;
                 }
             }
 
@@ -130,7 +140,7 @@ public class OrderDaoImpl implements OrderDao {
                     ex.printStackTrace();
                 }
             }
-            return false;
+            return null;
         } finally {
             if (conn != null) {
                 try {

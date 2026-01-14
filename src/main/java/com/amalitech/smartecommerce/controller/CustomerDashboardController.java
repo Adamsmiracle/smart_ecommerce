@@ -32,6 +32,7 @@ import javafx.stage.Stage;
 
 import java.io.IOException;
 import java.net.URL;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -842,9 +843,9 @@ public class CustomerDashboardController implements Initializable {
         Optional<ButtonType> result = confirm.showAndWait();
         if (result.isPresent() && result.get() == ButtonType.OK) {
             // Delete the order from database
-            boolean success = orderService.deleteOrder(order.getId());
+            Order deleted = orderService.deleteOrder(order.getId());
 
-            if (success) {
+            if (deleted != null) {
                 // Remove from cache
                 orderCache.remove(order.getId());
                 showAlert(Alert.AlertType.INFORMATION, "Order Cancelled",
@@ -1532,9 +1533,9 @@ public class CustomerDashboardController implements Initializable {
             order.setShippingMethodName(shipping.getName()); // Store the display name
 
             // Save the order
-            boolean success = orderService.createOrder(order);
+            Order createdOrder = orderService.createOrder(order);
 
-            if (success) {
+            if (createdOrder != null) {
                 // Create order lines for each cart item
                 for (var cartItem : cartItems) {
                     createOrderLine(order.getId(), cartItem.getProduct(), cartItem.getQuantity());
@@ -1756,7 +1757,7 @@ public class CustomerDashboardController implements Initializable {
     /**
      * Creates an order line for a cart item.
      */
-    private void createOrderLine(UUID orderId, Product product, int quantity) {
+    private void createOrderLine(UUID orderId, Product product, int quantity) throws SQLException {
         UUID productItemId = getProductItemId(product.getId());
         if (productItemId == null) {
             System.err.println("Could not get or create product_item for product: " + product.getName());
@@ -1776,8 +1777,8 @@ public class CustomerDashboardController implements Initializable {
         orderLine.setQty(quantity);
         orderLine.setPrice(price);
 
-        boolean success = orderLineDao.insert(orderLine);
-        if (!success) {
+        OrderLine created = orderLineDao.create(orderLine);
+        if (created == null) {
             System.err.println("Failed to create order line for product: " + product.getName());
         }
     }

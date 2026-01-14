@@ -7,11 +7,9 @@ import com.amalitech.smartecommerce.utils.UserUtils;
 import com.amalitech.smartecommerce.exception.EmailAlreadyExistsException;
 
 
+import java.sql.SQLException;
 import java.util.List;
 import java.util.UUID;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.nio.charset.StandardCharsets;
 
 public class UserServiceImpl implements UserService {
     private final UserDao userDao;
@@ -30,7 +28,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public List<User> getAllUsers() {
+    public List<User> getAllUsers() throws SQLException {
         return userDao.findAll();
     }
 
@@ -40,7 +38,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public User createUser(User user) throws EmailAlreadyExistsException {
+    public User createUser(User user) throws EmailAlreadyExistsException, SQLException {
         // Basic validations
         if (user == null) return null;
         String email = user.getEmailAddress();
@@ -63,16 +61,16 @@ public class UserServiceImpl implements UserService {
             user.setPassword(hashedPassword);
         } catch (RuntimeException ex) {
             ex.printStackTrace();
-            return null;
+            return user;
         }
 
-        return userDao.insert(user);
+        return userDao.create(user);
     }
 
 
 
     @Override
-    public User updateUser(User user) {
+    public User updateUser(User user) throws SQLException {
         if (user == null) {
             throw new IllegalArgumentException("User cannot be null");
         }
@@ -89,7 +87,7 @@ public class UserServiceImpl implements UserService {
 
 
     @Override
-    public boolean deleteUser(UUID id) {
+    public User deleteUser(UUID id) throws SQLException {
         if (id == null){
             throw new IllegalArgumentException("User ID cannot be null for deletion");
         }

@@ -516,16 +516,16 @@ public class OrderController implements Initializable {
             tblOrders.refresh();
 
             // Update in database in background
-            Task<Boolean> updateTask = new Task<>() {
+            Task<Order> updateTask = new Task<>() {
                 @Override
-                protected Boolean call() throws Exception {
+                protected Order call() throws Exception {
                     return orderService.updateOrder(selected);
                 }
 
                 @Override
                 protected void succeeded() {
                     Platform.runLater(() -> {
-                        if (getValue()) {
+                        if (getValue() != null) {
                             showAlert(Alert.AlertType.INFORMATION, "Success",
                                 "Order status updated to: " + newStatus.getStatus());
                         } else {
@@ -582,16 +582,16 @@ public class OrderController implements Initializable {
             updateSummary();
 
             // Delete from database in background
-            Task<Boolean> deleteTask = new Task<>() {
+            Task<Order> deleteTask = new Task<>() {
                 @Override
-                protected Boolean call() throws Exception {
+                protected Order call() throws Exception {
                     return orderService.deleteOrder(deletedOrder.getId());
                 }
 
                 @Override
                 protected void succeeded() {
                     Platform.runLater(() -> {
-                        if (getValue()) {
+                        if (getValue() != null) {
                             showAlert(Alert.AlertType.INFORMATION, "Success", "Order deleted successfully!");
                         } else {
                             // Rollback on failure

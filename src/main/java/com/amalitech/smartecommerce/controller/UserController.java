@@ -1,6 +1,8 @@
 package com.amalitech.smartecommerce.controller;
 
 import com.amalitech.smartecommerce.cache.UserCache;
+import com.amalitech.smartecommerce.dto.UserCreateDto;
+import com.amalitech.smartecommerce.dto.UserUpdateDto;
 import com.amalitech.smartecommerce.model.Order;
 import com.amalitech.smartecommerce.model.User;
 import com.amalitech.smartecommerce.service.OrderService;
@@ -8,7 +10,7 @@ import com.amalitech.smartecommerce.service.OrderServiceImpl;
 import com.amalitech.smartecommerce.service.UserService;
 import com.amalitech.smartecommerce.service.UserServiceImpl;
 import com.amalitech.smartecommerce.exception.EmailAlreadyExistsException;
-import com.amalitech.smartecommerce.utils.InputValidator;
+import com.amalitech.smartecommerce.utils.ValidationUtil;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -24,7 +26,7 @@ import java.net.URL;
 import java.util.List;
 import java.util.Optional;
 import java.util.ResourceBundle;
-import java.util.UUID;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -183,6 +185,7 @@ public class UserController implements Initializable {
         });
     }
 
+
     @FXML
     public void showEditDialog() {
         User selected = tblUsers.getSelectionModel().getSelectedItem();
@@ -312,9 +315,9 @@ public class UserController implements Initializable {
             lblTotalUsers.setText("Deleting...");
 
             // Delete from database in background
-            Task<Boolean> deleteTask = new Task<>() {
+            Task<User> deleteTask = new Task<>() {
                 @Override
-                protected Boolean call() throws Exception {
+                protected User call() throws Exception {
                     // First delete user's orders if any
                     if (userOrderCount > 0) {
                         List<Order> userOrders = allOrders.stream()
@@ -331,7 +334,7 @@ public class UserController implements Initializable {
                 protected void succeeded() {
                     Platform.runLater(() -> {
                         lblTotalUsers.setText("Total Users: " + allUsers.size());
-                        if (getValue()) {
+                        if (getValue() != null) {
                             showAlert(Alert.AlertType.INFORMATION, "Success", "User deleted successfully!");
                         } else {
                             // Rollback on failure
@@ -396,6 +399,7 @@ public class UserController implements Initializable {
         Dialog<Void> dialog = new Dialog<>();
         dialog.setTitle("Orders for " + selected.getFirstName() + " " + selected.getLastName());
         dialog.setHeaderText("📦 Order History for: " + selected.getEmailAddress());
+
 
         VBox content = new VBox(15);
         content.setPadding(new Insets(20));
@@ -499,7 +503,7 @@ public class UserController implements Initializable {
         TextField txtPhone = new TextField();
         txtPhone.setPromptText("Phone Number (optional)");
         PasswordField txtPassword = new PasswordField();
-        txtPassword.setPromptText(existing == null ? "Password (required, min 6 chars)" : "New Password (leave blank to keep)");
+        txtPassword.setPromptText(existing == null ? "Password (required, min 8 chars)" : "New Password (leave blank to keep)");
 
         // Pre-fill if editing
         if (existing != null) {
@@ -524,56 +528,40 @@ public class UserController implements Initializable {
 
         dialog.getDialogPane().setContent(grid);
 
-        // Get save button and add validation
+        // Get save button and add validation using Jakarta Bean Validation
         Button saveButton = (Button) dialog.getDialogPane().lookupButton(saveButtonType);
         saveButton.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
-            // Validate email
-            String emailError = InputValidator.getEmailError(txtEmail.getText());
-            if (emailError != null) {
-                lblError.setText(emailError);
-                event.consume();
-                return;
-            }
+            // Create appropriate DTO based on create or update
+            Set<String> errors;
 
-            // Validate first name
-            String firstNameError = InputValidator.getNameError(txtFirstName.getText(), "First name");
-            if (firstNameError != null) {
-                lblError.setText(firstNameError);
-                event.consume();
-                return;
-            }
-
-            // Validate last name
-            String lastNameError = InputValidator.getNameError(txtLastName.getText(), "Last name");
-            if (lastNameError != null) {
-                lblError.setText(lastNameError);
-                event.consume();
-                return;
-            }
-
-            // Validate phone (optional)
-            String phoneError = InputValidator.getPhoneError(txtPhone.getText());
-            if (phoneError != null) {
-                lblError.setText(phoneError);
-                event.consume();
-                return;
-            }
-
-            // Validate password for new users
             if (existing == null) {
-                String passwordError = InputValidator.getPasswordError(txtPassword.getText());
-                if (passwordError != null) {
-                    lblError.setText(passwordError);
-                    event.consume();
-                    return;
-                }
-            } else if (!txtPassword.getText().isEmpty()) {
-                // If editing and password provided, validate it
-                if (txtPassword.getText().length() < 6) {
-                    lblError.setText("Password must be at least 6 characters.");
-                    event.consume();
-                    return;
-                }
+                // Creating new user - use UserCreateDto
+                UserCreateDto createDto = new UserCreateDto(
+                    txtEmail.getText().trim(),
+                    txtFirstName.getText().trim(),
+                    txtLastName.getText().trim(),
+                    txtPhone.getText().trim(),
+                    txtPassword.getText()
+                );
+                errors = ValidationUtil.validate(createDto);
+            } else {
+                // Updating existing user - use UserUpdateDto
+                UserUpdateDto updateDto = new UserUpdateDto(
+                    existing.getId(),
+                    txtEmail.getText().trim(),
+                    txtFirstName.getText().trim(),
+                    txtLastName.getText().trim(),
+                    txtPhone.getText().trim(),
+                    txtPassword.getText().isEmpty() ? null : txtPassword.getText()
+                );
+                errors = ValidationUtil.validate(updateDto);
+            }
+
+            if (!errors.isEmpty()) {
+                // Show first validation error
+                lblError.setText(errors.iterator().next());
+                event.consume();
+                return;
             }
 
             lblError.setText("");
@@ -581,22 +569,42 @@ public class UserController implements Initializable {
 
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == saveButtonType) {
-                User user = existing != null ? existing : new User();
-                user.setEmailAddress(txtEmail.getText().trim());
-                user.setFirstName(txtFirstName.getText().trim());
-                user.setLastName(txtLastName.getText().trim());
-                user.setPhoneNumber(txtPhone.getText().trim());
-
-                // Only set password if provided (for new users or password change)
-                String password = txtPassword.getText();
-                if (!password.isEmpty()) {
-                    user.setPassword(password);
-                } else if (existing == null) {
-                    // New user must have password - should be caught by validation
-                    return null;
+                if (existing == null) {
+                    // Create new user from DTO (inline mapping)
+                    UserCreateDto createDto = new UserCreateDto(
+                        txtEmail.getText().trim(),
+                        txtFirstName.getText().trim(),
+                        txtLastName.getText().trim(),
+                        txtPhone.getText().trim(),
+                        txtPassword.getText()
+                    );
+                    User newUser = new User();
+                    newUser.setId(java.util.UUID.randomUUID());
+                    newUser.setEmailAddress(createDto.getEmailAddress());
+                    newUser.setFirstName(createDto.getFirstName());
+                    newUser.setLastName(createDto.getLastName());
+                    newUser.setPhoneNumber(createDto.getPhoneNumber());
+                    newUser.setPassword(createDto.getPassword());
+                    return newUser;
+                } else {
+                    // Update existing user from DTO (inline mapping)
+                    UserUpdateDto updateDto = new UserUpdateDto(
+                        existing.getId(),
+                        txtEmail.getText().trim(),
+                        txtFirstName.getText().trim(),
+                        txtLastName.getText().trim(),
+                        txtPhone.getText().trim(),
+                        txtPassword.getText().isEmpty() ? null : txtPassword.getText()
+                    );
+                    existing.setEmailAddress(updateDto.getEmailAddress());
+                    existing.setFirstName(updateDto.getFirstName());
+                    existing.setLastName(updateDto.getLastName());
+                    existing.setPhoneNumber(updateDto.getPhoneNumber());
+                    if (updateDto.hasPassword()) {
+                        existing.setPassword(updateDto.getPassword());
+                    }
+                    return existing;
                 }
-
-                return user;
             }
             return null;
         });

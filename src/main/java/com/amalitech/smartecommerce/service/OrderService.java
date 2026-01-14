@@ -1,5 +1,6 @@
 package com.amalitech.smartecommerce.service;
 
+import java.sql.SQLException;
 import java.util.List;
 import java.util.UUID;
 import com.amalitech.smartecommerce.model.Order;
@@ -7,11 +8,11 @@ import com.amalitech.smartecommerce.model.Order;
 
 
 public interface OrderService {
-    boolean deleteOrder(UUID id);
+    Order deleteOrder(UUID id);
 
-    boolean updateOrder(Order order);
+    Order updateOrder(Order order) throws SQLException;
 
-    boolean createOrder(Order order);
+    Order createOrder(Order order) throws SQLException;
 
     List<Order> getAllOrders();
 

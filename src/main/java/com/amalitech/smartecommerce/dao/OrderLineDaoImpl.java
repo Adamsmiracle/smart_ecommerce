@@ -62,7 +62,7 @@ public class OrderLineDaoImpl implements OrderLineDao {
     }
 
     @Override
-    public boolean insert(OrderLine orderLine) {
+    public OrderLine create(OrderLine orderLine) {
         String sql = "INSERT INTO order_line (id, product_item_id, order_id, qty, price) VALUES (?, ?, ?, ?, ?)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -71,15 +71,17 @@ public class OrderLineDaoImpl implements OrderLineDao {
             stmt.setObject(3, orderLine.getOrderId());
             stmt.setInt(4, orderLine.getQty());
             stmt.setObject(5, orderLine.getPrice());
-            return stmt.executeUpdate() > 0;
+            if (stmt.executeUpdate() > 0) {
+                return orderLine;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
+        return null;
     }
 
     @Override
-    public boolean update(OrderLine orderLine) {
+    public OrderLine update(OrderLine orderLine) {
         String sql = "UPDATE order_line SET product_item_id = ?, order_id = ?, qty = ?, price = ? WHERE id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -88,24 +90,32 @@ public class OrderLineDaoImpl implements OrderLineDao {
             stmt.setInt(3, orderLine.getQty());
             stmt.setObject(4, orderLine.getPrice());
             stmt.setObject(5, orderLine.getId());
-            return stmt.executeUpdate() > 0;
+            if (stmt.executeUpdate() > 0) {
+                return orderLine;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
+        return null;
     }
 
     @Override
-    public boolean delete(UUID id) {
+    public OrderLine delete(UUID id) {
+        OrderLine orderLineToDelete = findById(id);
+        if (orderLineToDelete == null) {
+            return null;
+        }
         String sql = "DELETE FROM order_line WHERE id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setObject(1, id);
-            return stmt.executeUpdate() > 0;
+            if (stmt.executeUpdate() > 0) {
+                return orderLineToDelete;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
+        return null;
     }
 
     private OrderLine mapResultSetToOrderLine(ResultSet rs) throws SQLException {

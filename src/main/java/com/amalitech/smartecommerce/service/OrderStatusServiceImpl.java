@@ -27,17 +27,17 @@ public class OrderStatusServiceImpl implements OrderStatusService {
     }
 
     @Override
-    public boolean createOrderStatus(OrderStatus orderStatus) {
-        return orderStatusDao.insert(orderStatus);
+    public OrderStatus createOrderStatus(OrderStatus orderStatus) {
+        return orderStatusDao.create(orderStatus);
     }
 
     @Override
-    public boolean updateOrderStatus(OrderStatus orderStatus) {
+    public OrderStatus updateOrderStatus(OrderStatus orderStatus) {
         return orderStatusDao.update(orderStatus);
     }
 
     @Override
-    public boolean deleteOrderStatus(UUID id) {
+    public OrderStatus deleteOrderStatus(UUID id) {
         return orderStatusDao.delete(id);
     }
 }

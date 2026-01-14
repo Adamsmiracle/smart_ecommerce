@@ -48,6 +48,8 @@ public class UserCache {
         this.allUsers = new ArrayList<>(users);
 
         for (User user : users) {
+            // Zero out password before caching to avoid exposing hashes in memory
+            if (user.getPassword() != null) user.setPassword(null);
             // Primary index
             userById.put(user.getId(), user);
 
@@ -130,22 +132,24 @@ public class UserCache {
     public void put(User user) {
         if (user == null || user.getId() == null) return;
 
-        userById.put(user.getId(), user);
+        // Avoid storing password hash in cache
+        if (user.getPassword() != null) user.setPassword(null);
+         userById.put(user.getId(), user);
 
-        if (user.getEmailAddress() != null) {
-            userByEmail.put(user.getEmailAddress().toLowerCase(), user);
-        }
+         if (user.getEmailAddress() != null) {
+             userByEmail.put(user.getEmailAddress().toLowerCase(), user);
+         }
 
-        // Add to list if not already present
-        if (!allUsers.contains(user)) {
-            allUsers.add(user);
-        }
-    }
+         // Add to list if not already present
+         if (!allUsers.contains(user)) {
+             allUsers.add(user);
+         }
+     }
 
-    /**
-     * Remove a user from the cache.
-     */
-    public void remove(UUID id) {
+     /**
+      * Remove a user from the cache.
+      */
+     public void remove(UUID id) {
         User user = userById.remove(id);
         if (user != null) {
             allUsers.remove(user);
@@ -159,35 +163,37 @@ public class UserCache {
      * Update a user in the cache.
      */
     public void update(User user) {
-        if (user == null || user.getId() == null) return;
+         if (user == null || user.getId() == null) return;
 
-        // Get the old user to remove old email index
-        User oldUser = userById.get(user.getId());
-        if (oldUser != null && oldUser.getEmailAddress() != null) {
-            userByEmail.remove(oldUser.getEmailAddress().toLowerCase());
-        }
+        // Avoid storing password hash in cache
+        if (user.getPassword() != null) user.setPassword(null);
+         // Get the old user to remove old email index
+         User oldUser = userById.get(user.getId());
+         if (oldUser != null && oldUser.getEmailAddress() != null) {
+             userByEmail.remove(oldUser.getEmailAddress().toLowerCase());
+         }
 
-        // Update primary index
-        userById.put(user.getId(), user);
+         // Update primary index
+         userById.put(user.getId(), user);
 
-        // Update email index
-        if (user.getEmailAddress() != null) {
-            userByEmail.put(user.getEmailAddress().toLowerCase(), user);
-        }
+         // Update email index
+         if (user.getEmailAddress() != null) {
+             userByEmail.put(user.getEmailAddress().toLowerCase(), user);
+         }
 
-        // Update in list
-        int index = -1;
-        for (int i = 0; i < allUsers.size(); i++) {
-            if (allUsers.get(i).getId().equals(user.getId())) {
-                index = i;
-                break;
-            }
-        }
-        if (index >= 0) {
-            allUsers.set(index, user);
-        } else {
-            allUsers.add(user);
-        }
+         // Update in list
+         int index = -1;
+         for (int i = 0; i < allUsers.size(); i++) {
+             if (allUsers.get(i).getId().equals(user.getId())) {
+                 index = i;
+                 break;
+             }
+         }
+         if (index >= 0) {
+             allUsers.set(index, user);
+         } else {
+             allUsers.add(user);
+         }
     }
 
     /**

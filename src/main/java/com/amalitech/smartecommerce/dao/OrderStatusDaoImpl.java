@@ -61,44 +61,56 @@ public class OrderStatusDaoImpl implements OrderStatusDao {
     }
 
     @Override
-    public boolean insert(OrderStatus orderStatus) {
+    public OrderStatus create(OrderStatus orderStatus) {
         String sql = "INSERT INTO order_status (id, status) VALUES (?, ?)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, orderStatus.getId() != null ? orderStatus.getId() : UUID.randomUUID());
+            UUID id = orderStatus.getId() != null ? orderStatus.getId() : UUID.randomUUID();
+            stmt.setObject(1, id);
             stmt.setString(2, orderStatus.getStatus());
-            return stmt.executeUpdate() > 0;
+            if (stmt.executeUpdate() > 0) {
+                orderStatus.setId(id);
+                return orderStatus;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
+        return null;
     }
 
     @Override
-    public boolean update(OrderStatus orderStatus) {
+    public OrderStatus update(OrderStatus orderStatus) {
         String sql = "UPDATE order_status SET status = ? WHERE id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, orderStatus.getStatus());
             stmt.setObject(2, orderStatus.getId());
-            return stmt.executeUpdate() > 0;
+            if (stmt.executeUpdate() > 0) {
+                return orderStatus;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
+        return null;
     }
 
     @Override
-    public boolean delete(UUID id) {
+    public OrderStatus delete(UUID id) {
+        OrderStatus statusToDelete = findById(id);
+        if (statusToDelete == null) {
+            return null;
+        }
         String sql = "DELETE FROM order_status WHERE id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setObject(1, id);
-            return stmt.executeUpdate() > 0;
+            if (stmt.executeUpdate() > 0) {
+                return statusToDelete;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
+        return null;
     }
 
     private OrderStatus mapResultSetToOrderStatus(ResultSet rs) throws SQLException {
