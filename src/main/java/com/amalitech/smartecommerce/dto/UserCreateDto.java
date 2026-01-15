@@ -1,9 +1,13 @@
 package com.amalitech.smartecommerce.dto;
 
 import com.amalitech.smartecommerce.constants.ValidationMessages;
+import com.amalitech.smartecommerce.utils.InputValidator;
+import com.amalitech.smartecommerce.utils.ValidationUtil;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import org.intellij.lang.annotations.RegExp;
 
 /**
  * DTO for creating a new user.
@@ -24,6 +28,8 @@ public class UserCreateDto {
     private String lastName;
 
     @Size(max = 20, message = ValidationMessages.PHONE_SIZE)
+    @Pattern(regexp = "^[+]?[(]?[0-9]{1,4}[)]?[-\\s./0-9]{6,15}$",
+            message = "Please enter a valid phone number (e.g., +1234567890, 123-456-7890)")
     private String phoneNumber;
 
     @NotBlank(message = ValidationMessages.PASSWORD_REQUIRED)

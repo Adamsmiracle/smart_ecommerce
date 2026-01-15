@@ -31,26 +31,5 @@ public class ValidationUtil {
                 .collect(Collectors.toSet());
     }
 
-//
-//    /**
-//     * Check if an object is valid.
-//     * @param obj The object to validate
-//     * @return true if valid, false otherwise
-//     */
-//    public static <T> boolean isValid(T obj) {
-//        return validator.validate(obj).isEmpty();
-//    }
-//
-//    /**
-//     * Validate an object and return the first error message found.
-//     * @param obj The object to validate
-//     * @return First error message, or null if valid
-//     */
-//    public static <T> String validateFirst(T obj) {
-//        Set<ConstraintViolation<T>> violations = validator.validate(obj);
-//        return violations.stream()
-//                .map(ConstraintViolation::getMessage)
-//                .findFirst()
-//                .orElse(null);
-//    }
+
 }

@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.UUID;
 
 public class ProductDaoImpl implements ProductDao {
+
     @Override
     public Product findById(UUID id) {
         String sql = "SELECT * FROM product WHERE id = ?";

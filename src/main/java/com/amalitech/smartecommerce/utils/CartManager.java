@@ -1,5 +1,6 @@
 package com.amalitech.smartecommerce.utils;
 
+import com.amalitech.smartecommerce.cache.InventoryCache;
 import com.amalitech.smartecommerce.model.Product;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -19,7 +20,7 @@ public class CartManager {
 
     private CartManager() {}
 
-    public static synchronized CartManager getInstance() {
+    public static CartManager getInstance() {
         if (instance == null) {
             instance = new CartManager();
         }
@@ -30,11 +31,17 @@ public class CartManager {
         if (product == null || product.getId() == null) return;
 
         UUID productId = product.getId();
+
+        // Get price from cache or database
+        double price = getProductPrice(productId);
+
         if (cartItems.containsKey(productId)) {
+            // If item already in cart, just update quantity (keep original price)
             CartItem item = cartItems.get(productId);
             item.setQuantity(item.getQuantity() + quantity);
         } else {
-            cartItems.put(productId, new CartItem(product, quantity));
+            // New item - add with price captured at add time
+            cartItems.put(productId, new CartItem(product, quantity, price));
         }
     }
 
@@ -72,18 +79,32 @@ public class CartManager {
 
     public double getCartTotal() {
         double total = 0;
+
         for (CartItem item : cartItems.values()) {
-            double price = getProductPrice(item.getProductId());
+            // Use price stored in CartItem (captured when added to cart)
+            double price = item.getPrice();
             total += price * item.getQuantity();
         }
         return total;
     }
 
     /**
-     * Gets the price of a product from the product_item table.
+     * Gets the price of a product from the InventoryCache.
+     * Falls back to database if cache is empty (for safety).
      */
     private double getProductPrice(UUID productId) {
         if (productId == null) return 0.0;
+
+        // Try cache first (fast O(1) lookup)
+        InventoryCache inventoryCache = InventoryCache.getInstance();
+        double price = inventoryCache.getPrice(productId);
+
+        // If price found in cache, return it
+        if (price > 0) {
+            return price;
+        }
+
+        // Fallback to database if cache is empty
         try {
             java.sql.Connection conn = DBConnection.getConnection();
             String sql = "SELECT price FROM product_item WHERE product_id = ? LIMIT 1";
@@ -110,11 +131,17 @@ public class CartManager {
      */
     public static class CartItem {
         private final Product product;
+        private final double price;  // Store price at add time
         private int quantity;
 
-        public CartItem(Product product, int quantity) {
+        public CartItem(Product product, int quantity, double price) {
             this.product = product;
             this.quantity = quantity;
+            this.price = price;  // Capture price when added
+        }
+
+        public CartItem(Product product, int quantity) {
+            this(product, quantity, 0.0);  // Fallback constructor
         }
 
         public Product getProduct() {
@@ -127,6 +154,10 @@ public class CartManager {
 
         public void setQuantity(int quantity) {
             this.quantity = quantity;
+        }
+
+        public double getPrice() {
+            return price;  // Return stored price
         }
 
         public String getProductName() {

@@ -1,6 +1,7 @@
 package com.amalitech.smartecommerce.controller;
 
 import com.amalitech.smartecommerce.cache.CategoryCache;
+import com.amalitech.smartecommerce.cache.InventoryCache;
 import com.amalitech.smartecommerce.cache.OrderCache;
 import com.amalitech.smartecommerce.cache.ProductCache;
 import com.amalitech.smartecommerce.cache.UserCache;
@@ -48,7 +49,7 @@ public class AdminDashboardController implements Initializable {
     @FXML private Button btnInventory;
     @FXML private Button btnOrders;
     @FXML private Button btnUsers;
-    @FXML private Button btnPerformance;
+//    @FXML private Button btnPerformance;
 
     @FXML private Label lblProductCount;
     @FXML private Label lblCategoryCount;
@@ -101,6 +102,7 @@ public class AdminDashboardController implements Initializable {
         lblOrderCount.setText("...");
         lblUserCount.setText("...");
 
+
         Task<Void> loadTask = new Task<>() {
             private int productCount, categoryCount, orderCount, userCount;
             private List<Product> products;
@@ -110,6 +112,7 @@ public class AdminDashboardController implements Initializable {
 
             @Override
             protected Void call() throws Exception {
+
                 // Check caches first - if empty, load from database
                 products = productCache.getSize() > 0 ? productCache.getAll() : productService.getAllProducts();
                 if (productCache.getSize() == 0) {
@@ -135,7 +138,6 @@ public class AdminDashboardController implements Initializable {
                 categoryCount = categories.size();
                 orderCount = orders.size();
                 userCount = users.size();
-
 
                 return null;
             }
@@ -165,21 +167,20 @@ public class AdminDashboardController implements Initializable {
         new Thread(loadTask).start();
     }
 
-    private void updateCacheStatus() {
-        ProductCache cache = ProductCache.getInstance();
-        lblCacheHitRate.setText(String.format("%.1f%%", cache.getHitRate()));
-        lblCacheSize.setText(String.valueOf(cache.getSize()));
-
-        long lastRefresh = cache.getLastRefreshTime();
-        if (lastRefresh > 0) {
-            SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
-            lblLastRefresh.setText(sdf.format(new Date(lastRefresh)));
-        }
-    }
+//    private void updateCacheStatus() {
+//        ProductCache cache = ProductCache.getInstance();
+//        lblCacheHitRate.setText(String.format("%.1f%%", cache.getHitRate()));
+//        lblCacheSize.setText(String.valueOf(cache.getSize()));
+//
+//        long lastRefresh = cache.getLastRefreshTime();
+//        if (lastRefresh > 0) {
+//            SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
+//            lblLastRefresh.setText(sdf.format(new Date(lastRefresh)));
+//        }
+//    }
 
     @FXML
     public void showDashboard() {
-        System.out.println("DEBUG: showDashboard() called");
         showView(dashboardView);
         loadDataAsync();
         setActiveButton(btnDashboard);
@@ -204,13 +205,10 @@ public class AdminDashboardController implements Initializable {
 
     @FXML
     public void showCategories() {
-        System.out.println("DEBUG: showCategories() called");
         try {
             if (categoryView == null) {
-                System.out.println("DEBUG: Loading category-view.fxml...");
                 FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/amalitech/smartecommerce/category-view.fxml"));
                 categoryView = loader.load();
-                System.out.println("DEBUG: category-view.fxml loaded successfully");
             }
             showView(categoryView);
             setActiveButton(btnCategories);
@@ -227,10 +225,8 @@ public class AdminDashboardController implements Initializable {
         System.out.println("DEBUG: showInventory() called");
         try {
             if (inventoryView == null) {
-                System.out.println("DEBUG: Loading inventory-view.fxml...");
                 FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/amalitech/smartecommerce/inventory-view.fxml"));
                 inventoryView = loader.load();
-                System.out.println("DEBUG: inventory-view.fxml loaded successfully");
             }
             showView(inventoryView);
             setActiveButton(btnInventory);
@@ -244,13 +240,10 @@ public class AdminDashboardController implements Initializable {
 
     @FXML
     public void showOrders() {
-        System.out.println("DEBUG: showOrders() called");
         try {
             if (orderView == null) {
-                System.out.println("DEBUG: Loading order-view.fxml...");
                 FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/amalitech/smartecommerce/order-view.fxml"));
                 orderView = loader.load();
-                System.out.println("DEBUG: order-view.fxml loaded successfully");
             }
             showView(orderView);
             setActiveButton(btnOrders);
@@ -267,10 +260,8 @@ public class AdminDashboardController implements Initializable {
         System.out.println("DEBUG: showUsers() called");
         try {
             if (userView == null) {
-                System.out.println("DEBUG: Loading user-view.fxml...");
                 FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/amalitech/smartecommerce/user-view.fxml"));
                 userView = loader.load();
-                System.out.println("DEBUG: user-view.fxml loaded successfully");
             }
             showView(userView);
             setActiveButton(btnUsers);
@@ -282,25 +273,25 @@ public class AdminDashboardController implements Initializable {
         }
     }
 
-    @FXML
-    public void showPerformance() {
-        System.out.println("DEBUG: showPerformance() called");
-        try {
-            if (performanceView == null) {
-                System.out.println("DEBUG: Loading performance-view.fxml...");
-                FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/amalitech/smartecommerce/performance-view.fxml"));
-                performanceView = loader.load();
-                System.out.println("DEBUG: performance-view.fxml loaded successfully");
-            }
-            showView(performanceView);
-            setActiveButton(btnPerformance);
-            setStatus("Viewing performance metrics");
-        } catch (IOException e) {
-            System.err.println("ERROR: Failed to load performance view");
-            e.printStackTrace();
-            setStatus("Error loading performance view: " + e.getMessage());
-        }
-    }
+//    @FXML
+//    public void showPerformance() {
+//        System.out.println("DEBUG: showPerformance() called");
+//        try {
+//            if (performanceView == null) {
+//                System.out.println("DEBUG: Loading performance-view.fxml...");
+//                FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/amalitech/smartecommerce/performance-view.fxml"));
+//                performanceView = loader.load();
+//                System.out.println("DEBUG: performance-view.fxml loaded successfully");
+//            }
+//            showView(performanceView);
+////            setActiveButton(btnPerformance);
+//            setStatus("Viewing performance metrics");
+//        } catch (IOException e) {
+//            System.err.println("ERROR: Failed to load performance view");
+//            e.printStackTrace();
+//            setStatus("Error loading performance view: " + e.getMessage());
+//        }
+//    }
 
     @FXML
     public void quickAddProduct() {
@@ -312,15 +303,24 @@ public class AdminDashboardController implements Initializable {
         showCategories();
     }
 
-    @FXML
-    public void refreshCache() {
-        setStatus("Refreshing caches...");
-        loadDataAsync();
-    }
+//    @FXML
+//    public void refreshCache() {
+//        setStatus("Refreshing caches...");
+//        loadDataAsync();
+//    }
 
     @FXML
     public void handleLogout() {
+        // Clear session
         SessionManager.getInstance().logout();
+
+        // Clear all caches to prevent old data from persisting
+        productCache.clear();
+        categoryCache.clear();
+        orderCache.clear();
+        userCache.clear();
+        InventoryCache.getInstance().clear();
+
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/amalitech/smartecommerce/login-view.fxml"));
             Scene scene = new Scene(loader.load(), 500, 600);
@@ -347,7 +347,6 @@ public class AdminDashboardController implements Initializable {
         }
         contentArea.getChildren().clear();
         contentArea.getChildren().add(view);
-        System.out.println("DEBUG: View displayed - " + view.getClass().getSimpleName());
     }
 
     private void setActiveButton(Button activeBtn) {
@@ -358,7 +357,7 @@ public class AdminDashboardController implements Initializable {
         btnInventory.getStyleClass().remove("nav-button-active");
         btnOrders.getStyleClass().remove("nav-button-active");
         btnUsers.getStyleClass().remove("nav-button-active");
-        btnPerformance.getStyleClass().remove("nav-button-active");
+//        btnPerformance.getStyleClass().remove("nav-button-active");
 
         // Add active class to the selected button
         activeBtn.getStyleClass().add("nav-button-active");

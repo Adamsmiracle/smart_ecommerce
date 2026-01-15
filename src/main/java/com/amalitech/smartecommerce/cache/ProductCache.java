@@ -37,7 +37,7 @@ public class ProductCache {
         this.allProducts = new ArrayList<>();
     }
 
-    public static synchronized ProductCache getInstance() {
+    public static  ProductCache getInstance() {
         if (instance == null) {
             instance = new ProductCache();
         }

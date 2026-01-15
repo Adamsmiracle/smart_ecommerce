@@ -29,7 +29,7 @@
                     <Button fx:id="btnCategories" text="Categories" onAction="#showCategories" styleClass="nav-button"/>
                     <Button fx:id="btnOrders" text="Orders" onAction="#showOrders" styleClass="nav-button"/>
                     <Button fx:id="btnUsers" text="Users" onAction="#showUsers" styleClass="nav-button"/>
-                    <Button fx:id="btnPerformance" text="Performance" onAction="#showPerformance" styleClass="nav-button"/>
+<!--                    <Button fx:id="btnPerformance" text="Performance" onAction="#showPerformance" styleClass="nav-button"/>-->
                 </HBox>
             </ScrollPane>
         </VBox>

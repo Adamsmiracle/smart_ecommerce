@@ -5,11 +5,13 @@ import com.amalitech.smartecommerce.utils.DBConnection;
 
 import java.sql.*;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class OrderDaoImpl implements OrderDao {
+    private static final Logger LOGGER = Logger.getLogger(OrderDaoImpl.class.getName());
+
     @Override
     public Order findById(UUID id) {
         String sql = "SELECT * FROM customer_order WHERE id = ?";
@@ -22,7 +24,7 @@ public class OrderDaoImpl implements OrderDao {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Error finding Order by id: " + id, e);
         }
         return null;
     }
@@ -38,7 +40,7 @@ public class OrderDaoImpl implements OrderDao {
                 orders.add(mapResultSetToOrder(rs));
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Error fetching all orders", e);
         }
         return orders;
     }
@@ -60,7 +62,7 @@ public class OrderDaoImpl implements OrderDao {
                 return order;
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Error creating order: " + order, e);
         }
         return null;
     }
@@ -82,7 +84,7 @@ public class OrderDaoImpl implements OrderDao {
                 return order;
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Error updating order: " + order, e);
         }
         return null;
     }
@@ -106,7 +108,37 @@ public class OrderDaoImpl implements OrderDao {
                 stmt.executeUpdate();
             }
 
-            // 2. Delete order lines for this order
+            // 2. Restore inventory qty for each order_line of this order
+            String restoreQtySql = "UPDATE product_item SET qty_in_stock = qty_in_stock + ol.qty FROM order_line ol WHERE ol.product_item_id = product_item.id AND ol.order_id = ?";
+            try (PreparedStatement stmt = conn.prepareStatement(restoreQtySql)) {
+                stmt.setObject(1, id);
+                stmt.executeUpdate();
+            } catch (SQLException ex) {
+                LOGGER.log(Level.WARNING, "Warning: failed to restore inventory quantities for order: " + id, ex);
+                // proceed to delete to avoid leaving orphan orders; developer may choose to rollback instead
+            }
+
+            // Refresh InventoryCache for affected product_items
+            try {
+                com.amalitech.smartecommerce.cache.InventoryCache invCache = com.amalitech.smartecommerce.cache.InventoryCache.getInstance();
+                String selectQtySql = "SELECT pi.id, pi.qty_in_stock FROM product_item pi JOIN order_line ol ON ol.product_item_id = pi.id WHERE ol.order_id = ?";
+                try (PreparedStatement qStmt = conn.prepareStatement(selectQtySql)) {
+                    qStmt.setObject(1, id);
+                    try (ResultSet rs = qStmt.executeQuery()) {
+                        while (rs.next()) {
+                            java.util.UUID pid = (java.util.UUID) rs.getObject("id");
+                            int qty = rs.getInt("qty_in_stock");
+                            if (invCache.containsProductId(pid)) {
+                                invCache.updateQuantity(pid, qty);
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                LOGGER.log(Level.WARNING, "Warning: failed to refresh inventory cache during order delete: " + id, ex);
+            }
+
+            // 3. Delete order lines for this order
             String deleteOrderLines = "DELETE FROM order_line WHERE order_id = ?";
             try (PreparedStatement stmt = conn.prepareStatement(deleteOrderLines)) {
                 stmt.setObject(1, id);
@@ -114,7 +146,7 @@ public class OrderDaoImpl implements OrderDao {
             }
 
 
-            // 3. Delete the order
+            // 4. Delete the order
             String deleteOrder = "DELETE FROM customer_order WHERE id = ?";
             try (PreparedStatement stmt = conn.prepareStatement(deleteOrder)) {
                 stmt.setObject(1, id);
@@ -131,13 +163,12 @@ public class OrderDaoImpl implements OrderDao {
             }
 
         } catch (SQLException e) {
-            System.err.println("Error deleting order: " + e.getMessage());
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Error deleting order: " + id, e);
             if (conn != null) {
                 try {
                     conn.rollback(); // Rollback on error
                 } catch (SQLException ex) {
-                    ex.printStackTrace();
+                    LOGGER.log(Level.SEVERE, "Error during rollback for order delete: " + id, ex);
                 }
             }
             return null;
@@ -146,10 +177,29 @@ public class OrderDaoImpl implements OrderDao {
                 try {
                     conn.setAutoCommit(true); // Reset auto-commit
                 } catch (SQLException e) {
-                    e.printStackTrace();
+                    LOGGER.log(Level.WARNING, "Error resetting autoCommit after order delete", e);
                 }
             }
         }
+    }
+
+    @Override
+    public List<Order> getOrdersByUser(UUID user_id) {
+        List<Order> orders = new ArrayList<>();
+        String sql = "SELECT * FROM customer_order WHERE user_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setObject(1, user_id);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    orders.add(mapResultSetToOrder(rs));
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error fetching orders for user: " + user_id, e);
+        }
+        return orders;
+
     }
 
 

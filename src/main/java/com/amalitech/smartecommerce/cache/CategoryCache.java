@@ -24,7 +24,7 @@ public class CategoryCache {
         this.allCategories = new ArrayList<>();
     }
 
-    public static synchronized CategoryCache getInstance() {
+    public static CategoryCache getInstance() {
         if (instance == null) {
             instance = new CategoryCache();
         }

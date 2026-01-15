@@ -38,7 +38,7 @@ public class DashboardController implements Initializable {
     @FXML private Button btnCategories;
     @FXML private Button btnOrders;
     @FXML private Button btnUsers;
-    @FXML private Button btnPerformance;
+//    @FXML private Button btnPerformance;
 
     // Statistics labels
     @FXML private Label lblProductCount;
@@ -213,7 +213,7 @@ public class DashboardController implements Initializable {
                 performanceView = loader.load();
             }
             showView(performanceView);
-            setActiveButton(btnPerformance);
+//            setActiveButton(btnPerformance);
             setStatus("Viewing performance metrics");
         } catch (IOException e) {
             setStatus("Error loading performance view: " + e.getMessage());
@@ -253,7 +253,7 @@ public class DashboardController implements Initializable {
         btnCategories.getStyleClass().remove("nav-button-active");
         btnOrders.getStyleClass().remove("nav-button-active");
         btnUsers.getStyleClass().remove("nav-button-active");
-        btnPerformance.getStyleClass().remove("nav-button-active");
+//        btnPerformance.getStyleClass().remove("nav-button-active");
 
         // Add active class to current button
         activeBtn.getStyleClass().add("nav-button-active");

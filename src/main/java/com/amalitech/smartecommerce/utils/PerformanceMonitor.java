@@ -19,7 +19,7 @@ public class PerformanceMonitor {
         this.records = new ArrayList<>();
     }
 
-    public static synchronized PerformanceMonitor getInstance() {
+    public static  PerformanceMonitor getInstance() {
         if (instance == null) {
             instance = new PerformanceMonitor();
         }

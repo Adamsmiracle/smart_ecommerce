@@ -48,7 +48,6 @@ public class UserServiceImpl implements UserService {
 
         // Ensure email is unique
         if (userDao.findByEmail(email) != null) {
-            // Instead of returning null, throw a specific exception so callers (controllers)
             throw new EmailAlreadyExistsException(email);
         }
         // Ensure id is set

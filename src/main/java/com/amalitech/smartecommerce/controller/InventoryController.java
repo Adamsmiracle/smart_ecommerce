@@ -1,9 +1,11 @@
 package com.amalitech.smartecommerce.controller;
 
 import com.amalitech.smartecommerce.cache.CategoryCache;
+import com.amalitech.smartecommerce.cache.InventoryCache;
 import com.amalitech.smartecommerce.cache.ProductCache;
 import com.amalitech.smartecommerce.model.Product;
 import com.amalitech.smartecommerce.model.ProductCategory;
+import com.amalitech.smartecommerce.model.ProductItem;
 import com.amalitech.smartecommerce.service.*;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
@@ -23,12 +25,16 @@ import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 /**
  * Controller for inventory management view.
  */
 public class InventoryController implements Initializable {
+
+    private static final Logger LOGGER = Logger.getLogger(InventoryController.class.getName());
 
     @FXML private TableView<InventoryItem> tblInventory;
     @FXML private TableColumn<InventoryItem, String> colProduct;
@@ -52,11 +58,14 @@ public class InventoryController implements Initializable {
     private final ProductCategoryService categoryService = new ProductCategoryServiceImpl();
     private final ProductCache productCache = ProductCache.getInstance();
     private final CategoryCache categoryCache = CategoryCache.getInstance();
+    private final InventoryCache inventoryCache = InventoryCache.getInstance();
 
     private ObservableList<InventoryItem> inventoryList = FXCollections.observableArrayList();
     private List<InventoryItem> allInventoryItems = new ArrayList<>();
 
-    // Simulated inventory quantities (in real app, this would come from database)
+    // Map to track ProductItem objects for database persistence
+    private Map<UUID, ProductItem> productItemMap = new HashMap<>();
+    // Cached inventory quantities (loaded from database via ProductService)
     private Map<UUID, Integer> inventoryQuantities = new HashMap<>();
 
     @Override
@@ -72,6 +81,17 @@ public class InventoryController implements Initializable {
 
     private void setupTable() {
         tblInventory.setItems(inventoryList);
+
+        // Make columns resize to fill available space responsively
+        tblInventory.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        // Ensure column pref widths (will be used as relative weights with constrained resize)
+        colProduct.setPrefWidth(300);
+        colCategory.setPrefWidth(180);
+        colQuantity.setPrefWidth(120);
+        colStatus.setPrefWidth(140);
+        colLastUpdated.setPrefWidth(180);
+        colActions.setPrefWidth(220);
 
         colProduct.setCellValueFactory(cellData ->
             new SimpleStringProperty(cellData.getValue().getProductName()));
@@ -190,24 +210,46 @@ public class InventoryController implements Initializable {
                     products = productService.getAllProducts();
                 }
 
+                // OPTIMIZATION: Batch load all inventory data in ONE query
+                // Instead of: 1 query per product (N+1 problem)
+                // Now: 1 query for all products
+                List<ProductItem> allProductItems = productService.getAllProductItems();
+
+                // Create map for fast lookup: product_id -> ProductItem
+                Map<UUID, ProductItem> productItemByProductId = new HashMap<>();
+                for (ProductItem item : allProductItems) {
+                    productItemByProductId.put(item.getProductId(), item);
+                }
+
                 List<InventoryItem> items = new ArrayList<>();
-                Random random = new Random();
 
                 for (Product product : products) {
-                    // Generate simulated quantity if not already set
-                    if (!inventoryQuantities.containsKey(product.getId())) {
-                        inventoryQuantities.put(product.getId(), random.nextInt(100));
+                    // Get quantity from map (O(1) lookup, no database query)
+                    int quantity = 0;
+                    ProductItem productItem = productItemByProductId.get(product.getId());
+
+                    if (productItem != null) {
+                        quantity = productItem.getQtyInStock();
+                        // Cache the quantity for future use
+                        inventoryQuantities.put(product.getId(), quantity);
                     }
 
-                    int quantity = inventoryQuantities.get(product.getId());
                     String categoryName = getCategoryName(product.getCategoryId());
+
+                    // Track ProductItem for persistence
+                    if (productItem == null) {
+                        productItem = new ProductItem();
+                        productItem.setProductId(product.getId());
+                        productItem.setQtyInStock(quantity);
+                    }
+                    productItemMap.put(product.getId(), productItem);
 
                     InventoryItem item = new InventoryItem(
                         product.getId(),
                         product.getName(),
                         categoryName,
                         quantity,
-                        LocalDateTime.now().minusDays(random.nextInt(30))
+                        LocalDateTime.now()
                     );
                     items.add(item);
                 }
@@ -220,6 +262,11 @@ public class InventoryController implements Initializable {
                     allInventoryItems.clear();
                     allInventoryItems.addAll(getValue());
                     inventoryList.setAll(allInventoryItems);
+
+                    // Populate InventoryCache with ProductItem data
+                    List<ProductItem> productItems = new ArrayList<>(productItemMap.values());
+                    inventoryCache.loadAll(productItems);
+
                     updateSummary();
                     tblInventory.setPlaceholder(new Label("No inventory data found"));
                 });
@@ -404,10 +451,14 @@ public class InventoryController implements Initializable {
             try {
                 int newQuantity = Integer.parseInt(result);
                 if (newQuantity >= 0) {
+                    // Update UI immediately for responsiveness
                     inventoryQuantities.put(item.getProductId(), newQuantity);
                     item.setQuantity(newQuantity);
                     tblInventory.refresh();
                     updateSummary();
+
+                    // Persist to database asynchronously
+                    updateProductQuantity(item.getProductId(), newQuantity);
                 } else {
                     showAlert(Alert.AlertType.ERROR, "Invalid Input", "Quantity cannot be negative.");
                 }
@@ -419,10 +470,14 @@ public class InventoryController implements Initializable {
 
     private void adjustQuantity(InventoryItem item, int adjustment) {
         int newQuantity = Math.max(0, item.getQuantity() + adjustment);
+        // Update UI immediately for responsiveness
         inventoryQuantities.put(item.getProductId(), newQuantity);
         item.setQuantity(newQuantity);
         tblInventory.refresh();
         updateSummary();
+
+        // Persist to database asynchronously
+        updateProductQuantity(item.getProductId(), newQuantity);
     }
 
     private void showAlert(Alert.AlertType type, String title, String content) {
@@ -466,6 +521,62 @@ public class InventoryController implements Initializable {
         public String getLastUpdated() {
             return lastUpdated.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"));
         }
+    }
+
+    /**
+     * Update product quantity in the database asynchronously.
+     * Updates the ProductItem stock and persists it via ProductService.
+     * Also updates InventoryCache to keep it in sync.
+     * @param productId The product ID to update
+     * @param newQuantity The new stock quantity
+     */
+    private void updateProductQuantity(UUID productId, int newQuantity) {
+        Task<Boolean> updateTask = new Task<>() {
+            @Override
+            protected Boolean call() throws Exception {
+                try {
+                    ProductItem productItem = productItemMap.get(productId);
+                    if (productItem != null) {
+                        productItem.setQtyInStock(newQuantity);
+                        // Use the ProductService to update via DAO
+                        ProductItem updated = productService.updateProductStock(productItem);
+
+                        // Update cache if database update was successful
+                        if (updated != null) {
+                            inventoryCache.update(updated);
+                        }
+
+                        return updated != null;
+                    }
+                    return false;
+                } catch (Exception e) {
+                    LOGGER.log(Level.SEVERE, "Error updating product quantity: {0}", e.getMessage());
+                    LOGGER.log(Level.SEVERE, "Exception details", e);
+                    return false;
+                }
+            }
+
+            @Override
+            protected void succeeded() {
+                if (!getValue()) {
+                    Platform.runLater(() ->
+                        showAlert(Alert.AlertType.WARNING, "Database Update",
+                            "Could not persist quantity to database. UI has been updated.")
+                    );
+                }
+            }
+
+            @Override
+            protected void failed() {
+                Platform.runLater(() ->
+                    showAlert(Alert.AlertType.ERROR, "Database Error",
+                        "Failed to update quantity in database: " + getException().getMessage())
+                );
+            }
+        };
+
+        // Run update task in background thread
+        new Thread(updateTask).start();
     }
 }
 

@@ -7,8 +7,12 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class OrderLineDaoImpl implements OrderLineDao {
+    private static final Logger LOGGER = Logger.getLogger(OrderLineDaoImpl.class.getName());
+
     @Override
     public OrderLine findById(UUID id) {
         String sql = "SELECT * FROM order_line WHERE id = ?";
@@ -21,7 +25,7 @@ public class OrderLineDaoImpl implements OrderLineDao {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Error finding OrderLine by id: " + id, e);
         }
         return null;
     }
@@ -38,7 +42,7 @@ public class OrderLineDaoImpl implements OrderLineDao {
                 lines.add(mapResultSetToOrderLine(rs));
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Error fetching all OrderLines", e);
         }
         return lines;
     }
@@ -56,7 +60,7 @@ public class OrderLineDaoImpl implements OrderLineDao {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Error finding OrderLines for order: " + orderId, e);
         }
         return lines;
     }
@@ -75,7 +79,7 @@ public class OrderLineDaoImpl implements OrderLineDao {
                 return orderLine;
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Error creating OrderLine: " + orderLine, e);
         }
         return null;
     }
@@ -94,7 +98,7 @@ public class OrderLineDaoImpl implements OrderLineDao {
                 return orderLine;
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Error updating OrderLine: " + orderLine, e);
         }
         return null;
     }
@@ -106,14 +110,45 @@ public class OrderLineDaoImpl implements OrderLineDao {
             return null;
         }
         String sql = "DELETE FROM order_line WHERE id = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, id);
-            if (stmt.executeUpdate() > 0) {
-                return orderLineToDelete;
+        try (Connection conn = DBConnection.getConnection()) {
+            // First, increment the stock back for this product_item
+            String incSql = "UPDATE product_item SET qty_in_stock = qty_in_stock + ? WHERE id = ?";
+            try (PreparedStatement incStmt = conn.prepareStatement(incSql)) {
+                incStmt.setInt(1, orderLineToDelete.getQty());
+                incStmt.setObject(2, orderLineToDelete.getProductItemId());
+                incStmt.executeUpdate();
+            } catch (SQLException ex) {
+                LOGGER.log(Level.WARNING, "Warning: failed to restore stock for product_item: " + orderLineToDelete.getProductItemId(), ex);
+            }
+
+            // Refresh InventoryCache for the associated product (use product_id from product_item)
+            try {
+                String selectSql = "SELECT product_id, qty_in_stock FROM product_item WHERE id = ? LIMIT 1";
+                try (PreparedStatement qStmt = conn.prepareStatement(selectSql)) {
+                    qStmt.setObject(1, orderLineToDelete.getProductItemId());
+                    try (ResultSet rs = qStmt.executeQuery()) {
+                        if (rs.next()) {
+                            UUID productId = (UUID) rs.getObject("product_id");
+                            int qty = rs.getInt("qty_in_stock");
+                            com.amalitech.smartecommerce.cache.InventoryCache invCache = com.amalitech.smartecommerce.cache.InventoryCache.getInstance();
+                            if (invCache.containsProductId(productId)) {
+                                invCache.updateQuantity(productId, qty);
+                            }
+                        }
+                    }
+                }
+            } catch (SQLException ex) {
+                LOGGER.log(Level.WARNING, "Warning: failed to refresh inventory cache after order_line delete for id: " + id, ex);
+            }
+
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setObject(1, id);
+                if (stmt.executeUpdate() > 0) {
+                    return orderLineToDelete;
+                }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Error deleting order_line with id: " + id, e);
         }
         return null;
     }
@@ -127,4 +162,3 @@ public class OrderLineDaoImpl implements OrderLineDao {
         return new OrderLine(id, productItemId, orderId, qty, price);
     }
 }
-

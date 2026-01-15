@@ -6,8 +6,10 @@ import java.util.UUID;
 
 
 public interface OrderDao extends DAO<Order> {
-
+     List<Order> getOrdersByUser(UUID user_id);
 }
+
+
 
 
 

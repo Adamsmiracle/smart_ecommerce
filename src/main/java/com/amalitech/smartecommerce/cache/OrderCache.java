@@ -33,7 +33,7 @@ public class OrderCache {
         this.allOrders = new ArrayList<>();
     }
 
-    public static synchronized OrderCache getInstance() {
+    public static  OrderCache getInstance() {
         if (instance == null) {
             instance = new OrderCache();
         }

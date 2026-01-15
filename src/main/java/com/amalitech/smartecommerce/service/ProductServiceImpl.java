@@ -2,24 +2,35 @@ package com.amalitech.smartecommerce.service;
 
 import com.amalitech.smartecommerce.dao.ProductDao;
 import com.amalitech.smartecommerce.dao.ProductDaoImpl;
+import com.amalitech.smartecommerce.dao.ProductItemDao;
 import com.amalitech.smartecommerce.model.Product;
+import com.amalitech.smartecommerce.model.ProductItem;
 import com.amalitech.smartecommerce.utils.DBConnection;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
 public class ProductServiceImpl implements ProductService {
     private final ProductDao productDao;
+    private final ProductItemDao productItemDao;
 
     public ProductServiceImpl() {
         this.productDao = new ProductDaoImpl();
+        this.productItemDao = new ProductItemDao();
     }
 
-    public ProductServiceImpl(ProductDao productDao) {
+    public ProductServiceImpl(ProductItemDao productItemDao) {
+        this.productItemDao = productItemDao;
+        this.productDao = new ProductDaoImpl();
+    }
+
+    public ProductServiceImpl(ProductDao productDao, ProductItemDao productItemDao) {
         this.productDao = productDao;
+        this.productItemDao = productItemDao;
     }
 
     @Override
@@ -147,5 +158,38 @@ public class ProductServiceImpl implements ProductService {
             throw new IllegalArgumentException("Product ID cannot be null");
         }
         return productDao.delete(id);
+    }
+
+
+    public ProductItem updateProductStock(ProductItem productItem) {
+        if (productItem == null) {
+            return null;
+        }
+
+        return productItemDao.updateProductQuantity(productItem);
+    }
+
+    @Override
+    public ProductItem getProductItemByProductId(UUID productId) {
+        if (productId == null) {
+            return null;
+        }
+
+        try {
+            return productItemDao.findByProductId(productId);
+        } catch (Exception e) {
+            System.err.println("Error fetching ProductItem for product " + productId + ": " + e.getMessage());
+            return null;
+        }
+    }
+
+    @Override
+    public List<ProductItem> getAllProductItems() {
+        try {
+            return productItemDao.findAll();
+        } catch (Exception e) {
+            System.err.println("Error fetching all ProductItems: " + e.getMessage());
+            return new ArrayList<>();
+        }
     }
 }

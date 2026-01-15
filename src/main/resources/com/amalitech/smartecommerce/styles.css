@@ -438,86 +438,60 @@
 /* ========== Tables ========== */
 .table-view {
     -fx-background-color: white;
-    -fx-border-color: #e0e0e0;
-    -fx-border-radius: 8;
-    -fx-background-radius: 8;
+    -fx-padding: 8 10 12 10; /* gentle padding around table */
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
 }
 
-.table-view .column-header {
-    -fx-background-color: #34495e;
-    -fx-padding: 12;
+/* Use a light gradient for the header background so dark header text is readable */
+.table-view .column-header-background {
+    -fx-background-color: linear-gradient(to bottom, #f7f9fb, #eef3f7);
+}
+
+.table-view .column-header, .table-view .column-header .label {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2c3e50; /* dark text for good contrast on light header */
+    -fx-padding: 10 8; /* more breathing room in header */
 }
 
 .table-view .column-header .label {
-    -fx-text-fill: white;
-    -fx-font-weight: bold;
+    -fx-text-fill: #2c3e50; /* ensure label is dark */
+}
+
+/* Cell styling and spacing */
+.table-view .cell, .table-view .table-cell {
+    -fx-padding: 10 12; /* increase clickable area */
     -fx-font-size: 13px;
+    -fx-text-fill: #34495e;
 }
 
-.table-view .column-header-background {
-    -fx-background-color: #34495e;
-}
-
+/* Increase row height for readability */
 .table-row-cell {
-    -fx-background-color: white;
-    -fx-border-color: #f0f0f0;
-    -fx-padding: 8;
+    -fx-pref-height: 48px; /* comfortable row height */
 }
 
-.table-row-cell:odd {
-    -fx-background-color: #f9f9f9;
-}
-
+/* Selected row / hover feedback */
 .table-row-cell:selected {
-    -fx-background-color: #3498db;
+    -fx-background-color: rgba(52,152,219,0.08);
 }
-
-.table-row-cell:selected .text {
-    -fx-fill: white;
-}
-
-.table-row-cell:selected .table-cell {
-    -fx-text-fill: white;
-}
-
 .table-row-cell:hover {
-    -fx-background-color: #d5e8f7;
+    -fx-background-color: rgba(0,0,0,0.02);
 }
 
-.table-row-cell:hover .text {
-    -fx-fill: #2c3e50;
+/* Action column buttons spacing */
+.table-view .cell .button {
+    -fx-padding: 6 10;
 }
 
-.table-row-cell:hover .table-cell {
-    -fx-text-fill: #2c3e50;
+/* Make placeholder label less cramped */
+.table-view .placeholder {
+    -fx-padding: 40;
+    -fx-text-fill: #7f8c8d;
+    -fx-font-size: 14px;
 }
 
-.table-row-cell:selected:hover {
-    -fx-background-color: #2980b9;
-}
-
-.table-row-cell:selected:hover .text {
-    -fx-fill: white;
-}
-
-.table-row-cell:selected:hover .table-cell {
-    -fx-text-fill: white;
-}
-
-/* Table cell default styling */
-.table-cell {
-    -fx-text-fill: #2c3e50;
-    -fx-alignment: CENTER_LEFT;
-    -fx-padding: 5 10;
-}
-
-.table-row-cell:selected .table-cell {
-    -fx-text-fill: white;
-}
-
-.table-row-cell:odd .table-cell {
-    -fx-text-fill: #2c3e50;
-}
+/* End of table improvements */
 
 /* ========== Text Fields ========== */
 .text-field, .text-area, .password-field {
@@ -542,10 +516,18 @@
 }
 
 .search-btn {
-    -fx-background-color: #667eea;
+    -fx-background-color: #666dea;
     -fx-text-fill: white;
     -fx-padding: 10 20;
     -fx-background-radius: 20;
+    -fx-cursor: hand;
+}
+
+.clear-btn {
+    -fx-background-color: #D266EAFF;
+    -fx-text-fill: white;
+    -fx-padding: 5 10;
+    -fx-background-radius: 10;
     -fx-cursor: hand;
 }
 

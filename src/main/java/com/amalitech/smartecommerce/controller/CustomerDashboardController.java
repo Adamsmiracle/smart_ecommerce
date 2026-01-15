@@ -1,6 +1,7 @@
 package com.amalitech.smartecommerce.controller;
 
 import com.amalitech.smartecommerce.cache.CategoryCache;
+import com.amalitech.smartecommerce.cache.InventoryCache;
 import com.amalitech.smartecommerce.cache.OrderCache;
 import com.amalitech.smartecommerce.cache.ProductCache;
 import com.amalitech.smartecommerce.cache.UserCache;
@@ -39,11 +40,15 @@ import java.util.List;
 import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.UUID;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Customer dashboard controller for shopping experience.
  */
 public class CustomerDashboardController implements Initializable {
+
+    private static final Logger LOGGER = Logger.getLogger(CustomerDashboardController.class.getName());
 
     @FXML private StackPane contentArea;
     @FXML private VBox homeView;
@@ -74,11 +79,6 @@ public class CustomerDashboardController implements Initializable {
     private final UserCache userCache = UserCache.getInstance();
     private final CartManager cartManager = CartManager.getInstance();
 
-    private Node shopView;
-    private Node ordersView;
-    private Node cartView;
-    private Node profileView;
-
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         if (SessionManager.getInstance().isLoggedIn()) {
@@ -95,17 +95,18 @@ public class CustomerDashboardController implements Initializable {
         setStatus("Loading...");
 
         // Show loading indicator
-        VBox loadingView = createLoadingIndicator("Loading products...");
+        VBox loadingView = createLoadingIndicator();
         categoriesPane.getChildren().clear();
         categoriesPane.getChildren().add(loadingView);
         featuredProductsPane.getChildren().clear();
 
         Task<Void> loadTask = new Task<>() {
-            private List<ProductCategory> categories;
-            private List<Product> products;
-
             @Override
             protected Void call() throws Exception {
+                // Local vars instead of fields
+                List<Product> products;
+                List<ProductCategory> categories;
+
                 // Check if cache has data, otherwise load from DB
                 if (productCache.getSize() == 0) {
                     products = productService.getAllProducts();
@@ -145,7 +146,7 @@ public class CustomerDashboardController implements Initializable {
     /**
      * Creates a loading indicator with spinner and message.
      */
-    private VBox createLoadingIndicator(String message) {
+    private VBox createLoadingIndicator() {
         VBox loadingBox = new VBox(15);
         loadingBox.setAlignment(Pos.CENTER);
         loadingBox.setPadding(new Insets(40));
@@ -155,7 +156,7 @@ public class CustomerDashboardController implements Initializable {
         spinner.getStyleClass().add("loading-spinner");
         spinner.setPrefSize(50, 50);
 
-        Label loadingLabel = new Label(message);
+        Label loadingLabel = new Label("Loading products...");
         loadingLabel.getStyleClass().add("loading-text");
 
         Label subLabel = new Label("Please wait...");
@@ -328,10 +329,8 @@ public class CustomerDashboardController implements Initializable {
         subtotalLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #7f8c8d;");
 
         // Update subtotal when quantity changes
-        double finalPrice = price;
-        quantitySpinner.valueProperty().addListener((obs, oldVal, newVal) -> {
-            subtotalLabel.setText(String.format("Subtotal: $%.2f", finalPrice * newVal));
-        });
+        // price is effectively final; use directly
+        quantitySpinner.valueProperty().addListener((obs, oldVal, newVal) -> subtotalLabel.setText(String.format("Subtotal: $%.2f", price * newVal)));
 
         qtyPane.getChildren().addAll(qtyLabel, quantitySpinner, subtotalLabel);
 
@@ -343,7 +342,7 @@ public class CustomerDashboardController implements Initializable {
             int quantity = quantitySpinner.getValue();
             cartManager.addToCart(product, quantity);
             updateCartButton();
-            double totalPrice = finalPrice * quantity;
+            double totalPrice = price * quantity;
             showAlert(Alert.AlertType.INFORMATION, "Added to Cart",
                 quantity + "x " + product.getName() + " ($" + String.format("%.2f", totalPrice) + ") has been added to your cart.\n\nCart total: " + cartManager.getCartSize() + " items");
             dialog.close();
@@ -387,7 +386,7 @@ public class CustomerDashboardController implements Initializable {
 
         HBox header = new HBox(15);
         header.setAlignment(Pos.CENTER_LEFT);
-        Button backBtn = new Button("← Back");
+        Button backBtn = new Button("Back");
         backBtn.getStyleClass().add("back-button");
         backBtn.setOnAction(e -> showHome());
         Label title = new Label(category.getCategoryName());
@@ -439,10 +438,14 @@ public class CustomerDashboardController implements Initializable {
         Button searchBtn = new Button("Search");
         searchBtn.getStyleClass().add("search-btn");
 
+        Button clearFiltersBtn = new Button("Clear Filters");
+        clearFiltersBtn.getStyleClass().add("clear-btn");
+
         ComboBox<ProductCategory> categoryFilter = new ComboBox<>();
         categoryFilter.setPromptText("All Categories");
         categoryFilter.getItems().addAll(categoryCache.getAll());
         categoryFilter.setCellFactory(lv -> new ListCell<>() {
+
             @Override
             protected void updateItem(ProductCategory item, boolean empty) {
                 super.updateItem(item, empty);
@@ -457,7 +460,7 @@ public class CustomerDashboardController implements Initializable {
             }
         });
 
-        searchBar.getChildren().addAll(searchField, searchBtn, categoryFilter);
+        searchBar.getChildren().addAll(searchField, searchBtn, categoryFilter, clearFiltersBtn);
 
         // Products grid
         FlowPane productsPane = new FlowPane(20, 20);
@@ -487,6 +490,16 @@ public class CustomerDashboardController implements Initializable {
                 if (query.isEmpty() || (p.getName() != null && p.getName().toLowerCase().contains(query.toLowerCase()))) {
                     productsPane.getChildren().add(createProductCard(p));
                 }
+            }
+        });
+
+        // Clear filters action
+        clearFiltersBtn.setOnAction(e -> {
+            searchField.clear();
+            categoryFilter.setValue(null);
+            productsPane.getChildren().clear();
+            for (Product p : productCache.getAll()) {
+                productsPane.getChildren().add(createProductCard(p));
             }
         });
 
@@ -536,7 +549,7 @@ public class CustomerDashboardController implements Initializable {
 
                 // If cache is empty, load from database and populate cache
                 if (myOrders.isEmpty()) {
-                    List<Order> allOrders = orderService.getAllOrders();
+                    List<Order> allOrders = orderService.getAllOrdersByUser(currentUserId);
                     orderCache.loadAll(allOrders);
                     myOrders = orderCache.getByUserId(currentUserId);
                 }
@@ -826,7 +839,7 @@ public class CustomerDashboardController implements Initializable {
                 }
             }
         } catch (java.sql.SQLException e) {
-            System.err.println("Error fetching order items: " + e.getMessage());
+            LOGGER.log(Level.SEVERE, "Error fetching order items: {0}", e.getMessage());
         }
 
         return items;
@@ -858,35 +871,6 @@ public class CustomerDashboardController implements Initializable {
         }
     }
 
-    private UUID getCancelledStatusId() {
-        try {
-            java.sql.Connection conn = com.amalitech.smartecommerce.utils.DBConnection.getConnection();
-
-            // First, try to find existing "Cancelled" status
-            String selectSql = "SELECT id FROM order_status WHERE LOWER(status) = 'cancelled' LIMIT 1";
-            try (java.sql.PreparedStatement stmt = conn.prepareStatement(selectSql);
-                 java.sql.ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return (UUID) rs.getObject("id");
-                }
-            }
-
-            // If not found, create it
-            UUID newId = UUID.randomUUID();
-            String insertSql = "INSERT INTO order_status (id, status) VALUES (?, 'Cancelled')";
-            try (java.sql.PreparedStatement stmt = conn.prepareStatement(insertSql)) {
-                stmt.setObject(1, newId);
-                if (stmt.executeUpdate() > 0) {
-                    System.out.println("Created 'Cancelled' order status with ID: " + newId);
-                    return newId;
-                }
-            }
-        } catch (java.sql.SQLException e) {
-            System.err.println("Error getting/creating cancelled status: " + e.getMessage());
-        }
-        return null;
-    }
-
     /**
      * Gets the shipping cost for a shipping method.
      */
@@ -906,7 +890,7 @@ public class CustomerDashboardController implements Initializable {
                 }
             }
         } catch (java.sql.SQLException e) {
-            System.err.println("Error getting shipping cost: " + e.getMessage());
+            LOGGER.log(Level.SEVERE, "Error getting shipping cost: {0}", e.getMessage());
         }
         return 0.0;
     }
@@ -1009,7 +993,7 @@ public class CustomerDashboardController implements Initializable {
         imageLabel.setStyle("-fx-background-color: #f0f0f0; -fx-padding: 10; -fx-background-radius: 8;");
 
         // Get product price
-        double price = getProductPrice(item.getProductId());
+        double price = item.getPrice(); // Use price stored when item was added to cart
         double itemTotal = price * item.getQuantity();
 
         // Product info
@@ -1449,7 +1433,7 @@ public class CustomerDashboardController implements Initializable {
         shippingGroup.selectedToggleProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
                 ShippingMethod selected = (ShippingMethod) newVal.getUserData();
-                double itemTotal = cartManager.getCartSize(); // Placeholder
+                double itemTotal = cartManager.getCartTotal();
                 double total = itemTotal + selected.getPrice();
                 totalAmount.setText(String.format("$%.2f", total));
             }
@@ -1511,10 +1495,10 @@ public class CustomerDashboardController implements Initializable {
             // Get cart items
             var cartItems = cartManager.getCartItems();
 
-            // Calculate item total from actual product prices
+            // Calculate item total from cart item prices (use price captured when added to cart)
             double itemTotal = 0;
             for (var cartItem : cartItems) {
-                double productPrice = getProductPrice(cartItem.getProduct().getId());
+                double productPrice = cartItem.getPrice();
                 itemTotal += productPrice * cartItem.getQuantity();
             }
 
@@ -1532,102 +1516,41 @@ public class CustomerDashboardController implements Initializable {
             order.setShippingMethodId(shipping.getId());
             order.setShippingMethodName(shipping.getName()); // Store the display name
 
-            // Save the order
-            Order createdOrder = orderService.createOrder(order);
-
-            if (createdOrder != null) {
-                // Create order lines for each cart item
-                for (var cartItem : cartItems) {
-                    createOrderLine(order.getId(), cartItem.getProduct(), cartItem.getQuantity());
+            // Save the order using transactional service that also creates order lines and updates stock
+            List<OrderLine> orderLines = new ArrayList<>();
+            for (var cartItem : cartItems) {
+                UUID productItemId = getProductItemId(cartItem.getProduct().getId());
+                if (productItemId == null) {
+                    throw new RuntimeException("Failed to find product_item for product: " + cartItem.getProduct().getName());
                 }
+                OrderLine ol = new OrderLine();
+                ol.setId(UUID.randomUUID());
+                ol.setOrderId(order.getId());
+                ol.setProductItemId(productItemId);
+                ol.setQty(cartItem.getQuantity());
+                ol.setPrice(cartItem.getPrice());
+                orderLines.add(ol);
+            }
 
-                // Clear the cart
-                cartManager.clearCart();
-                updateCartButton();
+            try {
+                Order created = orderService.createOrderWithLines(order, orderLines);
+                if (created != null) {
+                    // fetch fresh copy and cache
+                    Order freshOrder = orderService.getOrderById(created.getId());
+                    if (freshOrder != null) orderCache.put(freshOrder);
 
-                // Show success message with shipping and payment info
-                Alert successAlert = new Alert(Alert.AlertType.INFORMATION);
-                successAlert.setTitle("Order Placed Successfully!");
-                successAlert.setHeaderText("🎉 Thank You For Your Order!");
+                    // Clear the cart and update UI
+                    cartManager.clearCart();
+                    updateCartButton();
 
-                VBox content = new VBox(15);
-                content.setPadding(new Insets(15));
-
-                Label orderIdLabel = new Label("✅ Your order has been recorded!");
-                orderIdLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #27ae60;");
-
-                Label dateLabel = new Label("📅 Order Date: " + LocalDate.now().toString());
-                dateLabel.setStyle("-fx-font-size: 13px;");
-
-                // Shipping info section
-                VBox shippingBox = new VBox(5);
-                shippingBox.setStyle("-fx-background-color: #e8f4fd; -fx-padding: 12; -fx-background-radius: 8;");
-
-                Label shippingHeader = new Label("🚚 Shipping Details");
-                shippingHeader.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
-
-                Label shippingMethodLabel = new Label("Method: " + shipping.getName());
-                shippingMethodLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #2c3e50;");
-
-                Label deliveryTime = new Label("Estimated Delivery: " + getDeliveryTimeForMethod(shipping.getName()));
-                deliveryTime.setStyle("-fx-font-size: 12px; -fx-text-fill: #7f8c8d;");
-
-                Label shippingPrice = new Label("Shipping Cost: " + (shipping.getPrice() == 0 ? "FREE" : String.format("$%.2f", shipping.getPrice())));
-                shippingPrice.setStyle("-fx-font-size: 12px; -fx-text-fill: " + (shipping.getPrice() == 0 ? "#27ae60" : "#2c3e50") + ";");
-
-                shippingBox.getChildren().addAll(shippingHeader, shippingMethodLabel, deliveryTime, shippingPrice);
-
-                // Total section
-                HBox totalBox = new HBox(10);
-                totalBox.setAlignment(Pos.CENTER_LEFT);
-                totalBox.setStyle("-fx-background-color: #27ae60; -fx-padding: 12; -fx-background-radius: 8;");
-
-                Label totalTitle = new Label("Order Total:");
-                totalTitle.setStyle("-fx-font-size: 14px; -fx-text-fill: white;");
-                HBox.setHgrow(totalTitle, Priority.ALWAYS);
-
-                Label totalValue = new Label(String.format("$%.2f", orderTotal));
-                totalValue.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: white;");
-
-                totalBox.getChildren().addAll(totalTitle, totalValue);
-
-                Label statusLabel = new Label("📋 Status: Pending Payment");
-                statusLabel.setStyle("-fx-font-size: 13px; -fx-text-fill: #f39c12; -fx-font-weight: bold;");
-
-                Label divider = new Label("─".repeat(40));
-                divider.setStyle("-fx-text-fill: #ddd;");
-
-                Label paymentNotice = new Label("⚠️ Payment Integration Coming Soon!");
-                paymentNotice.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #e74c3c;");
-
-                Label paymentInfo = new Label(
-                    "Your order has been placed and saved to our system.\n" +
-                    "Payment processing is not yet available.\n\n" +
-                    "Once payment integration is implemented, you will be\n" +
-                    "able to complete your purchase using various payment\n" +
-                    "methods including credit cards and mobile money."
-                );
-                paymentInfo.setStyle("-fx-font-size: 12px; -fx-text-fill: #666;");
-                paymentInfo.setWrapText(true);
-
-                Label viewOrdersLabel = new Label("📦 You can view your orders in 'My Orders' section.");
-                viewOrdersLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #3498db;");
-
-                content.getChildren().addAll(
-                    orderIdLabel, dateLabel, shippingBox, totalBox, statusLabel, divider,
-                    paymentNotice, paymentInfo, viewOrdersLabel
-                );
-
-                successAlert.getDialogPane().setContent(content);
-                successAlert.getDialogPane().setPrefWidth(480);
-
-                successAlert.showAndWait();
-
-                // Navigate to My Orders
-                showMyOrders();
-            } else {
-                showAlert(Alert.AlertType.ERROR, "Order Failed",
-                    "Failed to create your order. Please try again.");
+                    // Show success and navigate
+                    showOrderSuccessDialog(orderTotal, shipping);
+                    showMyOrders();
+                } else {
+                    showAlert(Alert.AlertType.ERROR, "Order Failed", "Failed to create your order. Please try again.");
+                }
+            } catch (SQLException ex) {
+                showAlert(Alert.AlertType.ERROR, "Order Error", "Failed to place order: " + ex.getMessage());
             }
         } catch (Exception e) {
             showAlert(Alert.AlertType.ERROR, "Error",
@@ -1635,9 +1558,42 @@ public class CustomerDashboardController implements Initializable {
         }
     }
 
+    private void showOrderSuccessDialog(double orderTotal, ShippingMethod shipping) {
+        Alert successAlert = new Alert(Alert.AlertType.INFORMATION);
+        successAlert.setTitle("Order Placed Successfully!");
+        successAlert.setHeaderText("🎉 Thank You For Your Order!");
+
+        VBox content = new VBox(12);
+        content.setPadding(new Insets(12));
+
+        Label orderMsg = new Label("✅ Your order has been recorded successfully.");
+        orderMsg.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #27ae60;");
+
+        Label amount = new Label(String.format("Order Total: $%.2f", orderTotal));
+        amount.setStyle("-fx-font-size: 12px;");
+
+        Label ship = new Label("Shipping: " + (shipping != null ? shipping.getName() : "Standard") +
+            (shipping != null && shipping.getPrice() > 0 ? String.format(" ($%.2f)", shipping.getPrice()) : " (FREE)"));
+        ship.setStyle("-fx-font-size: 12px;");
+
+        content.getChildren().addAll(orderMsg, amount, ship);
+        successAlert.getDialogPane().setContent(content);
+        successAlert.showAndWait();
+    }
+
     @FXML
     public void handleLogout() {
+        // Clear session
         SessionManager.getInstance().logout();
+
+        // Clear all caches to prevent old data from persisting
+        productCache.clear();
+        categoryCache.clear();
+        orderCache.clear();
+        userCache.clear();
+        InventoryCache.getInstance().clear();
+        cartManager.clearCart();
+
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/amalitech/smartecommerce/login-view.fxml"));
             Scene scene = new Scene(loader.load(), 500, 600);
@@ -1698,7 +1654,7 @@ public class CustomerDashboardController implements Initializable {
                 }
             }
         } catch (java.sql.SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Error getting product price: {0}", e.getMessage());
         }
         return 0.0; // Default price if not found
     }
@@ -1724,7 +1680,7 @@ public class CustomerDashboardController implements Initializable {
             return createProductItemForProduct(productId);
 
         } catch (java.sql.SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Error getting product_item_id: {0}", e.getMessage());
         }
         return null;
     }
@@ -1744,43 +1700,14 @@ public class CustomerDashboardController implements Initializable {
                 stmt.setDouble(4, 10.0);  // Default price $10
                 stmt.setString(5, null);
                 if (stmt.executeUpdate() > 0) {
-                    System.out.println("Created product_item for product: " + productId);
+                    LOGGER.info("Created product_item for product: " + productId);
                     return productItemId;
                 }
             }
         } catch (java.sql.SQLException e) {
-            System.err.println("Failed to create product_item: " + e.getMessage());
+            LOGGER.log(Level.SEVERE, "Failed to create product_item: {0}", e.getMessage());
         }
         return null;
-    }
-
-    /**
-     * Creates an order line for a cart item.
-     */
-    private void createOrderLine(UUID orderId, Product product, int quantity) throws SQLException {
-        UUID productItemId = getProductItemId(product.getId());
-        if (productItemId == null) {
-            System.err.println("Could not get or create product_item for product: " + product.getName());
-            return;
-        }
-
-        double price = getProductPrice(product.getId());
-        // If price is 0, set a default price
-        if (price <= 0) {
-            price = 10.0; // Default price
-        }
-
-        OrderLine orderLine = new OrderLine();
-        orderLine.setId(UUID.randomUUID());
-        orderLine.setOrderId(orderId);
-        orderLine.setProductItemId(productItemId);
-        orderLine.setQty(quantity);
-        orderLine.setPrice(price);
-
-        OrderLine created = orderLineDao.create(orderLine);
-        if (created == null) {
-            System.err.println("Failed to create order line for product: " + product.getName());
-        }
     }
 }
 

@@ -199,7 +199,7 @@ public class InputValidator {
     /**
      * Gets validation error message for email.
      */
-    public static String getEmailError(String email) {
+    public static String validateEmail(String email) {
         if (!isNotEmpty(email)) {
             return "Email is required.";
         }
@@ -208,6 +208,18 @@ public class InputValidator {
         }
         return null;
     }
+
+    public static String validatePhone(String phone) {
+        if (!isNotEmpty(phone)){
+            return "Phone is required";
+        }
+
+        if (!isValidPhone(phone)){
+            return "Please enter a valid phone number";
+        }
+        return null;
+    }
+
 
     /**
      * Gets validation error message for phone.

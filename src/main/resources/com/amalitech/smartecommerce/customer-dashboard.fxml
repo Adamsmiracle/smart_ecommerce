@@ -14,7 +14,7 @@
         <VBox styleClass="header customer-header">
             <ScrollPane fitToWidth="true" hbarPolicy="AS_NEEDED" vbarPolicy="NEVER"
                         style="-fx-background-color: transparent;">
-                <HBox alignment="CENTER_LEFT" spacing="15" styleClass="nav-bar" minWidth="700">
+                <HBox alignment="CENTER_LEFT" spacing="15" styleClass="header" minWidth="700">
                     <padding>
                         <Insets bottom="15" left="25" right="25" top="15"/>
                     </padding>

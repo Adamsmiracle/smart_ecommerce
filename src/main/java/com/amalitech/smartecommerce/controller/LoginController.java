@@ -52,7 +52,7 @@ public class LoginController implements Initializable {
 
     private final UserService userService = new UserServiceImpl();
 
-    // Admin credentials (in production, this would be in database with role)
+    // Admin credentials
     private static final String ADMIN_EMAIL = "admin@smartecommerce.com";
     private static final String ADMIN_PASSWORD = "admin123";
 
@@ -70,7 +70,7 @@ public class LoginController implements Initializable {
         String password = txtPassword.getText();
 
         // Validate email
-        String emailError = InputValidator.getEmailError(email);
+        String emailError = InputValidator.validateEmail(email);
         if (emailError != null) {
             showError(lblError, emailError);
             return;
@@ -81,7 +81,6 @@ public class LoginController implements Initializable {
             showError(lblError, "Password is required.");
             return;
         }
-
 
         // Check for regular user login
         User user;
@@ -103,19 +102,6 @@ public class LoginController implements Initializable {
             return;
         }
 
-//        // Migrate password to BCrypt if using legacy hash format
-//        if (UserUtils.needsHashMigration(user.getPassword())) {
-//            try {
-//                String newHash = UserUtils.hashPassword(password);
-//                user.setPassword(newHash);
-//                userService.updateUser(user);
-//                System.out.println("Password migrated to BCrypt for user: " + user.getEmailAddress());
-//            } catch (Exception e) {
-//                // Migration failed, but login can still proceed
-//                System.err.println("Failed to migrate password: " + e.getMessage());
-//            }
-//        }
-
         // Login successful
         SessionManager.getInstance().setCurrentUser(user);
         SessionManager.getInstance().setAdmin(false);
@@ -134,6 +120,12 @@ public class LoginController implements Initializable {
         String confirmPassword = txtConfirmPassword.getText();
 
         // Create DTO for validation
+        String emailError = InputValidator.validateEmail(email);
+        if (emailError != null) {
+            showError(lblError, emailError);
+            return;
+        }
+
         UserCreateDto createDto = new UserCreateDto(email, firstName, lastName, phone, password);
 
         // Validate using Jakarta Bean Validation
@@ -143,22 +135,13 @@ public class LoginController implements Initializable {
             return;
         }
 
-        // Validate confirm password (not in DTO since it's UI-only)
+//
+
+        // Validate confirm password
         if (!password.equals(confirmPassword)) {
             showError(lblRegError, ValidationMessages.PASSWORDS_NOT_MATCH);
             return;
         }
-
-//        // Check for network/database connectivity first
-//        if (!DBConnection.testConnection()) {
-//            String errorMsg = DBConnection.getConnectionErrorMessage();
-//            if (errorMsg != null) {
-//                showError(lblRegError, errorMsg);
-//            } else {
-//                showError(lblRegError, "⚠️ No internet connection. Please check your network and try again.");
-//            }
-//            return;
-//        }
 
 
         // Check if email already exists
@@ -192,7 +175,7 @@ public class LoginController implements Initializable {
                 showError(lblRegError, "Failed to create account. Please try again.");
             }
         } catch (EmailAlreadyExistsException e) {
-            showError(lblRegError, "An account with this email already exists. Please use a different email.");
+            showError(lblRegError, "An account with this email already exists.");
         } catch (Exception e) {
             showError(lblRegError, "⚠️ Connection error. Please check your internet and try again.");
         }
@@ -242,7 +225,7 @@ public class LoginController implements Initializable {
         String password = txtAdminPassword.getText();
 
         // Validate email
-        String emailError = InputValidator.getEmailError(email);
+        String emailError = InputValidator.validateEmail(email);
         if (emailError != null) {
             showError(lblAdminError, emailError);
             return;
@@ -254,19 +237,10 @@ public class LoginController implements Initializable {
             return;
         }
 
-        // Check for network/database connectivity first (admin needs DB access)
-//        if (!DBConnection.testConnection()) {
-//            String errorMsg = DBConnection.getConnectionErrorMessage();
-//            if (errorMsg != null) {
-//                showError(lblAdminError, errorMsg);
-//            } else {
-//                showError(lblAdminError, "⚠️ No internet connection. Please check your network and try again.");
-//            }
-//            return;
-//        }
 
         // Verify admin credentials
         if (email.equalsIgnoreCase(ADMIN_EMAIL) && password.equals(ADMIN_PASSWORD)) {
+
             // Create admin user session
             User adminUser = new User();
             adminUser.setEmailAddress(ADMIN_EMAIL);
