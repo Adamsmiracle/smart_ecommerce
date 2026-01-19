@@ -5,6 +5,7 @@ import com.amalitech.smartecommerce.cache.InventoryCache;
 import com.amalitech.smartecommerce.cache.OrderCache;
 import com.amalitech.smartecommerce.cache.ProductCache;
 import com.amalitech.smartecommerce.cache.UserCache;
+import com.amalitech.smartecommerce.dao.OrderDaoImpl;
 import com.amalitech.smartecommerce.dao.OrderLineDao;
 import com.amalitech.smartecommerce.dao.OrderLineDaoImpl;
 import com.amalitech.smartecommerce.model.Order;
@@ -687,14 +688,14 @@ public class CustomerDashboardController implements Initializable {
         actionButtons.setAlignment(Pos.CENTER_RIGHT);
         actionButtons.setPadding(new Insets(10, 0, 0, 0));
 
-        Button viewDetailsBtn = new Button("📋 View Details");
+        Button viewDetailsBtn = new Button("View Details");
         viewDetailsBtn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-padding: 8 15; " +
             "-fx-background-radius: 5; -fx-cursor: hand;");
         viewDetailsBtn.setOnAction(e -> showCustomerOrderDetails(order));
 
         // Only show cancel button if order is not completed or already cancelled
         if (!status.equals("Completed") && !status.equals("Cancelled")) {
-            Button cancelBtn = new Button("❌ Cancel Order");
+            Button cancelBtn = new Button("Cancel Order");
             cancelBtn.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-padding: 8 15; " +
                 "-fx-background-radius: 5; -fx-cursor: hand;");
             cancelBtn.setOnAction(e -> cancelOrder(order));
@@ -739,18 +740,18 @@ public class CustomerDashboardController implements Initializable {
         List<OrderItemDetail> orderItems = getOrderItemsForCustomer(order.getId());
 
         // Get shipping cost
-        double shippingCost = getShippingCost(order.getShippingMethodId());
+        ShippingMethod shippingMethod = getShippingCost(order.getShippingMethodId());
 
         StringBuilder details = new StringBuilder();
         details.append("Order ID: #").append(order.getId().toString().substring(0, 8).toUpperCase()).append("\n\n");
-        details.append("📅 Order Date: ").append(order.getOrderDate()).append("\n");
-        details.append("📋 Status: ").append(determineCustomerOrderStatus(order)).append("\n");
+        details.append("Order Date: ").append(order.getOrderDate()).append("\n");
+        details.append("Status: ").append(determineCustomerOrderStatus(order)).append("\n");
 
         // Get shipping method name and cost
         if (order.getShippingMethodName() != null && !order.getShippingMethodName().isEmpty()) {
             details.append("🚚 Shipping: ").append(order.getShippingMethodName());
-            if (shippingCost > 0) {
-                details.append(String.format(" ($%.2f)", shippingCost));
+            if (shippingMethod.getPrice() > 0) {
+                details.append(String.format(" ($%.2f)", shippingMethod.getPrice()));
             } else {
                 details.append(" (FREE)");
             }
@@ -759,7 +760,7 @@ public class CustomerDashboardController implements Initializable {
         details.append("\n");
 
         // Display order items
-        details.append("📦 ORDER ITEMS:\n");
+        details.append("ORDER ITEMS:\n");
         details.append("─".repeat(35)).append("\n");
 
         double itemsTotal = 0;
@@ -777,7 +778,7 @@ public class CustomerDashboardController implements Initializable {
 
         // Show breakdown
         details.append(String.format("Items Subtotal: $%.2f\n", itemsTotal));
-        details.append(String.format("Shipping Cost:  $%.2f\n", shippingCost));
+        details.append(String.format("Shipping Cost:  $%.2f\n", shippingMethod.getPrice()));
         details.append("─".repeat(35)).append("\n");
         details.append(String.format("💰 ORDER TOTAL: $%.2f", order.getOrderTotal() != null ? order.getOrderTotal() : 0.0));
 
@@ -797,12 +798,12 @@ public class CustomerDashboardController implements Initializable {
         alert.showAndWait();
     }
 
-    private static class OrderItemDetail {
+    public static class OrderItemDetail {
         String productName;
         int quantity;
         double price;
 
-        OrderItemDetail(String productName, int quantity, double price) {
+        public OrderItemDetail(String productName, int quantity, double price) {
             this.productName = productName;
             this.quantity = quantity;
             this.price = price;
@@ -810,39 +811,7 @@ public class CustomerDashboardController implements Initializable {
     }
 
     private List<OrderItemDetail> getOrderItemsForCustomer(UUID orderId) {
-        List<OrderItemDetail> items = new ArrayList<>();
-
-        String sql = """
-            SELECT p.name AS product_name, ol.qty, ol.price
-            FROM order_line ol
-            JOIN product_item pi ON ol.product_item_id = pi.id
-            JOIN product p ON pi.product_id = p.id
-            WHERE ol.order_id = ?
-            ORDER BY p.name
-            """;
-
-        try {
-            java.sql.Connection conn = com.amalitech.smartecommerce.utils.DBConnection.getConnection();
-            try (java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setObject(1, orderId);
-                try (java.sql.ResultSet rs = stmt.executeQuery()) {
-                    while (rs.next()) {
-                        String productName = rs.getString("product_name");
-                        int qty = rs.getInt("qty");
-                        double price = rs.getDouble("price");
-                        items.add(new OrderItemDetail(
-                            productName != null ? productName : "Unknown Product",
-                            qty,
-                            price
-                        ));
-                    }
-                }
-            }
-        } catch (java.sql.SQLException e) {
-            LOGGER.log(Level.SEVERE, "Error fetching order items: {0}", e.getMessage());
-        }
-
-        return items;
+       return orderService.getOrderItems(orderId);
     }
 
     private void cancelOrder(Order order) {
@@ -874,25 +843,9 @@ public class CustomerDashboardController implements Initializable {
     /**
      * Gets the shipping cost for a shipping method.
      */
-    private double getShippingCost(UUID shippingMethodId) {
-        if (shippingMethodId == null) {
-            return 0.0;
-        }
-        try {
-            java.sql.Connection conn = com.amalitech.smartecommerce.utils.DBConnection.getConnection();
-            String sql = "SELECT price FROM shipping_method WHERE id = ?";
-            try (java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setObject(1, shippingMethodId);
-                try (java.sql.ResultSet rs = stmt.executeQuery()) {
-                    if (rs.next()) {
-                        return rs.getDouble("price");
-                    }
-                }
-            }
-        } catch (java.sql.SQLException e) {
-            LOGGER.log(Level.SEVERE, "Error getting shipping cost: {0}", e.getMessage());
-        }
-        return 0.0;
+    private ShippingMethod getShippingCost(UUID shippingMethodId) {
+        ShippingMethodService shippingMethodService1 = new ShippingMethodServiceImpl();
+        return shippingMethodService1.getShippingMethodById(shippingMethodId);
     }
 
     @FXML

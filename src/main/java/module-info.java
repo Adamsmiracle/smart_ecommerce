@@ -17,7 +17,7 @@ module com.amalitech.smartecommerce {
     requires jakarta.validation;
     requires org.hibernate.validator;
     requires annotations;
-//    requires com.amalitech.smartecommerce;
+    requires java.logging;
 
     opens com.amalitech.smartecommerce to javafx.fxml;
     exports com.amalitech.smartecommerce.app;

@@ -1,5 +1,6 @@
 package com.amalitech.smartecommerce.dao;
 
+import com.amalitech.smartecommerce.controller.CustomerDashboardController;
 import com.amalitech.smartecommerce.model.Order;
 import com.amalitech.smartecommerce.utils.DBConnection;
 
@@ -181,6 +182,45 @@ public class OrderDaoImpl implements OrderDao {
                 }
             }
         }
+    }
+
+
+
+    @Override
+    public List<CustomerDashboardController.OrderItemDetail> getOrderItemsForCustomer(UUID orderId) {
+        List<CustomerDashboardController.OrderItemDetail> items = new ArrayList<>();
+
+        String sql = """
+            SELECT p.name AS product_name, ol.qty, ol.price
+            FROM order_line ol
+            JOIN product_item pi ON ol.product_item_id = pi.id
+            JOIN product p ON pi.product_id = p.id
+            WHERE ol.order_id = ?
+            ORDER BY p.name
+            """;
+
+        try {
+            java.sql.Connection conn = com.amalitech.smartecommerce.utils.DBConnection.getConnection();
+            try (java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setObject(1, orderId);
+                try (java.sql.ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        String productName = rs.getString("product_name");
+                        int qty = rs.getInt("qty");
+                        double price = rs.getDouble("price");
+                        items.add(new CustomerDashboardController.OrderItemDetail(
+                                productName != null ? productName : "Unknown Product",
+                                qty,
+                                price
+                        ));
+                    }
+                }
+            }
+        } catch (java.sql.SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error fetching order items: {0}", e.getMessage());
+        }
+
+        return items;
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.amalitech.smartecommerce.service;
 
+import com.amalitech.smartecommerce.controller.CustomerDashboardController;
 import com.amalitech.smartecommerce.dao.OrderDao;
 import com.amalitech.smartecommerce.dao.OrderDaoImpl;
 import com.amalitech.smartecommerce.model.Order;
@@ -40,19 +41,6 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public List<Order> getAllOrdersByUser(UUID user_id) {
         return orderDao.getOrdersByUser(user_id);
-    }
-
-    @Override
-    public Order createOrder(Order order) throws SQLException {
-        if (order == null) throw new IllegalArgumentException("Order cannot be null");
-        if (order.getUserId() == null) throw new IllegalArgumentException("Order must have a userId");
-        if (order.getOrderTotal() == null || order.getOrderTotal() < 0) throw new IllegalArgumentException("Order total must be non-negative");
-
-        // ensure id and orderDate are set
-        if (order.getId() == null) order.setId(UUID.randomUUID());
-        if (order.getOrderDate() == null) order.setOrderDate(LocalDate.now());
-
-        return orderDao.create(order);
     }
 
     @Override
@@ -155,6 +143,11 @@ public class OrderServiceImpl implements OrderService {
                 try { conn.setAutoCommit(true); conn.close(); } catch (SQLException ex) { LOGGER.log(Level.SEVERE, "Failed to close connection: {0}", ex.getMessage()); }
             }
         }
+    }
+
+    @Override
+    public List<CustomerDashboardController.OrderItemDetail> getOrderItems(UUID order_id) {
+        return orderDao.getOrderItemsForCustomer(order_id);
     }
 
     @Override

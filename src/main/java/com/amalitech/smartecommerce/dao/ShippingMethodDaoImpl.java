@@ -7,6 +7,7 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.logging.Level;
 
 public class ShippingMethodDaoImpl implements ShippingMethodDao {
 
@@ -103,6 +104,30 @@ public class ShippingMethodDaoImpl implements ShippingMethodDao {
         String name = rs.getString("name");
         double price = rs.getDouble("price");
         return new ShippingMethod(id, name, price);
+    }
+
+    @Override
+    /**
+     * Gets the shipping cost for a shipping method.
+     */
+    public double getShippingCost(UUID shippingMethodId) {
+        if (shippingMethodId == null) {
+            return 0.0;
+        }
+        try {
+            java.sql.Connection conn = com.amalitech.smartecommerce.utils.DBConnection.getConnection();
+            String sql = "SELECT price FROM shipping_method WHERE id = ?";
+            try (java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setObject(1, shippingMethodId);
+                try (java.sql.ResultSet rs = stmt.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getDouble("price");
+                    }
+                }
+            }
+        } catch (java.sql.SQLException e) {
+        }
+        return 0.0;
     }
 }
 
