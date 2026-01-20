@@ -5,13 +5,11 @@ import com.amalitech.smartecommerce.cache.InventoryCache;
 import com.amalitech.smartecommerce.cache.OrderCache;
 import com.amalitech.smartecommerce.cache.ProductCache;
 import com.amalitech.smartecommerce.cache.UserCache;
-import com.amalitech.smartecommerce.dao.OrderDaoImpl;
-import com.amalitech.smartecommerce.dao.OrderLineDao;
-import com.amalitech.smartecommerce.dao.OrderLineDaoImpl;
 import com.amalitech.smartecommerce.model.Order;
 import com.amalitech.smartecommerce.model.OrderLine;
 import com.amalitech.smartecommerce.model.OrderStatus;
 import com.amalitech.smartecommerce.model.Product;
+import com.amalitech.smartecommerce.model.ProductItem;
 import com.amalitech.smartecommerce.model.ProductCategory;
 import com.amalitech.smartecommerce.model.ShippingMethod;
 import com.amalitech.smartecommerce.model.User;
@@ -19,6 +17,7 @@ import com.amalitech.smartecommerce.service.*;
 import com.amalitech.smartecommerce.utils.CartManager;
 import com.amalitech.smartecommerce.utils.SessionManager;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -38,9 +37,11 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -68,12 +69,41 @@ public class CustomerDashboardController implements Initializable {
     @FXML private FlowPane featuredProductsPane;
 
     private final ProductService productService = new ProductServiceImpl();
+    // Shared observable list used by product ComboBoxes to avoid repeated allocations
+    private final javafx.collections.ObservableList<Product> productsObservable = javafx.collections.FXCollections.observableArrayList();
+    // Initialize shared list asynchronously
+    private void ensureProductsObservableLoaded() {
+        if (productsObservable.isEmpty()) {
+            Task<List<Product>> loadProducts = new Task<>() {
+                @Override
+                protected List<Product> call() throws Exception {
+                    return productService.getAllProducts();
+                }
+
+                @Override
+                protected void succeeded() {
+                    List<Product> loaded = getValue();
+                    // Deduplicate by id while preserving order
+                    if (loaded != null && !loaded.isEmpty()) {
+                        java.util.LinkedHashMap<java.util.UUID, Product> map = new java.util.LinkedHashMap<>();
+                        for (Product p : loaded) {
+                            if (p == null || p.getId() == null) continue;
+                            if (!map.containsKey(p.getId())) map.put(p.getId(), p);
+                        }
+                        productsObservable.setAll(new ArrayList<>(map.values()));
+                    } else {
+                        productsObservable.setAll(new ArrayList<>());
+                    }
+                }
+            };
+            new Thread(loadProducts).start();
+        }
+    }
     private final ProductCategoryService categoryService = new ProductCategoryServiceImpl();
     private final OrderService orderService = new OrderServiceImpl();
     private final UserService userService = new UserServiceImpl();
     private final ShippingMethodService shippingMethodService = new ShippingMethodServiceImpl();
     private final OrderStatusService orderStatusService = new OrderStatusServiceImpl();
-    private final OrderLineDao orderLineDao = new OrderLineDaoImpl();
     private final ProductCache productCache = ProductCache.getInstance();
     private final CategoryCache categoryCache = CategoryCache.getInstance();
     private final OrderCache orderCache = OrderCache.getInstance();
@@ -89,6 +119,7 @@ public class CustomerDashboardController implements Initializable {
         }
 
         loadHomeDataAsync();
+        ensureProductsObservableLoaded();
         setActiveButton(btnHome);
     }
 
@@ -692,6 +723,15 @@ public class CustomerDashboardController implements Initializable {
         viewDetailsBtn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-padding: 8 15; " +
             "-fx-background-radius: 5; -fx-cursor: hand;");
         viewDetailsBtn.setOnAction(e -> showCustomerOrderDetails(order));
+
+        // Allow editing for Pending orders
+        if (status.equalsIgnoreCase("Pending")) {
+            Button editBtn = new Button("Edit Order");
+            editBtn.setStyle("-fx-background-color: #f39c12; -fx-text-fill: white; -fx-padding: 8 15; " +
+                "-fx-background-radius: 5; -fx-cursor: hand;");
+            editBtn.setOnAction(e -> showEditOrderDialog(order));
+            actionButtons.getChildren().add(editBtn);
+        }
 
         // Only show cancel button if order is not completed or already cancelled
         if (!status.equals("Completed") && !status.equals("Cancelled")) {
@@ -1662,5 +1702,109 @@ public class CustomerDashboardController implements Initializable {
         }
         return null;
     }
-}
 
+    private void showEditOrderDialog(Order order) {
+        // Load existing lines
+        List<OrderLine> existing = orderService.getOrderLinesRaw(order.getId());
+
+        Dialog<List<OrderLine>> dialog = new Dialog<>();
+        dialog.setTitle("Edit Order");
+        dialog.setHeaderText("Edit Order #" + order.getId().toString().substring(0,8).toUpperCase());
+
+        VBox content = new VBox(10);
+        content.setPadding(new Insets(12));
+
+        VBox linesBox = new VBox(8);
+        Map<HBox, OrderLine> rowMap = new ConcurrentHashMap<>();
+
+        ProductService productService = new ProductServiceImpl();
+
+        // Build existing rows
+        for (OrderLine ol : existing) {
+            HBox row = new HBox(10);
+            row.setPadding(new Insets(6));
+            ComboBox<Product> prodCombo = new ComboBox<>();
+            prodCombo.setPrefWidth(260);
+            // Use the shared productsObservable and the AutoComplete helper
+            com.amalitech.smartecommerce.ui.AutoCompleteComboBox.makeAutoComplete(prodCombo, productsObservable, Product::getName);
+
+            try {
+                Product prod = productService.getProductByProductItemId(ol.getProductItemId());
+                if (prod != null) {
+                    prodCombo.setValue(prod);
+                    ProductItem pi = productService.getProductItemByProductId(prod.getId());
+                    if (pi != null) { ol.setProductItemId(pi.getId()); ol.setPrice(pi.getPrice()); }
+                }
+            } catch (Exception ex) {
+                // ignore
+            }
+                // quantity spinner
+                Spinner<Integer> qty = new Spinner<>(1, 1000, ol.getQty()); qty.setEditable(true);
+                TextField priceField = new TextField(String.format("%.2f", ol.getPrice())); priceField.setPrefWidth(100);
+                Button remove = new Button("Remove");
+                remove.setOnAction(e -> { rowMap.remove(row); linesBox.getChildren().remove(row); });
+
+                row.getChildren().addAll(prodCombo, qty, priceField, remove);
+                rowMap.put(row, ol);
+                qty.valueProperty().addListener((obs, o, n) -> rowMap.get(row).setQty(n));
+                priceField.textProperty().addListener((obs, o, n) -> { try{ rowMap.get(row).setPrice(Double.parseDouble(n)); }catch(Exception ex){} });
+                prodCombo.valueProperty().addListener((obs, o, n) -> {
+                    if (n != null) {
+                        ProductItem item = productService.getProductItemByProductId(n.getId());
+                        if (item != null) {
+                            rowMap.get(row).setProductItemId(item.getId());
+                            rowMap.get(row).setPrice(item.getPrice());
+                            priceField.setText(String.format("%.2f", item.getPrice()));
+                        }
+                    }
+                });
+
+                linesBox.getChildren().add(row);
+            }
+
+            Button addBtn = new Button("Add Item");
+        addBtn.setOnAction(e -> {
+            OrderLine newOl = new OrderLine(); newOl.setId(UUID.randomUUID()); newOl.setOrderId(order.getId()); newOl.setQty(1); newOl.setPrice(0.0);
+            HBox row = new HBox(10); row.setPadding(new Insets(6));
+            ComboBox<Product> prodCombo = new ComboBox<>(); prodCombo.setPrefWidth(260);
+            com.amalitech.smartecommerce.ui.AutoCompleteComboBox.makeAutoComplete(prodCombo, productsObservable, Product::getName);
+            Spinner<Integer> qty = new Spinner<>(1,1000,1); qty.setEditable(true);
+            TextField priceField = new TextField("0.00"); priceField.setPrefWidth(100);
+            Button remove = new Button("Remove"); remove.setOnAction(ev -> { rowMap.remove(row); linesBox.getChildren().remove(row); });
+            row.getChildren().addAll(prodCombo, qty, priceField, remove);
+            rowMap.put(row, newOl);
+            prodCombo.valueProperty().addListener((obs, o, n) -> { if (n != null) { ProductItem item = productService.getProductItemByProductId(n.getId()); if (item != null) { rowMap.get(row).setProductItemId(item.getId()); rowMap.get(row).setPrice(item.getPrice()); priceField.setText(String.format("%.2f", item.getPrice())); } } });
+            qty.valueProperty().addListener((obs,o,n)-> rowMap.get(row).setQty(n));
+            priceField.textProperty().addListener((obs,o,n)->{ try{ rowMap.get(row).setPrice(Double.parseDouble(n)); }catch(Exception ex){} });
+            linesBox.getChildren().add(row);
+        });
+
+        ScrollPane scroll = new ScrollPane(linesBox); scroll.setFitToWidth(true); scroll.setPrefHeight(300);
+        content.getChildren().addAll(scroll, addBtn);
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        dialog.setResultConverter(btn -> {
+            if (btn==ButtonType.OK) {
+                return new ArrayList<>(rowMap.values());
+            }
+            return null;
+        });
+
+        Optional<List<OrderLine>> res = dialog.showAndWait();
+        res.ifPresent(lines -> {
+            // compute subtotal and shipping
+            double subtotal = 0.0; for (OrderLine ol : lines) subtotal += ol.getPrice()*ol.getQty();
+            ShippingMethod sm = getShippingCost(order.getShippingMethodId()); double ship = sm!=null?sm.getPrice():0.0;
+            order.setOrderTotal(subtotal + ship);
+
+            // Update via service in background
+            Task<Order> t = new Task<>(){ @Override protected Order call() throws Exception { return orderService.modifyOrderLines(order.getId(), lines); }
+                @Override protected void succeeded(){ Platform.runLater(()->{ Order updated = getValue(); if (updated!=null){ orderCache.update(updated); showAlert(Alert.AlertType.INFORMATION, "Success", "Order updated."); showMyOrders(); } else showAlert(Alert.AlertType.ERROR, "Error", "Failed to update order."); }); }
+                @Override protected void failed(){ Platform.runLater(()-> showAlert(Alert.AlertType.ERROR, "Error", "Failed to update order: " + getException().getMessage())); }
+           };
+            new Thread(t).start();
+        });
+    }
+
+}

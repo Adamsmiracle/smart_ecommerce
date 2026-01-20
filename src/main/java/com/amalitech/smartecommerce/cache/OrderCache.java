@@ -28,8 +28,8 @@ public class OrderCache {
     private long lastRefreshTime = 0;
 
     private OrderCache() {
-        this.orderById = new ConcurrentHashMap<>();
-        this.ordersByUserId = new ConcurrentHashMap<>();
+        this.orderById = new HashMap<>();
+        this.ordersByUserId = new HashMap<>();
         this.allOrders = new ArrayList<>();
     }
 
@@ -103,37 +103,22 @@ public class OrderCache {
     /**
      * Search orders by order ID (partial match).
      */
-    public List<Order> search(String query) {
-        if (query == null || query.trim().isEmpty()) {
-            return getAll();
-        }
+//    public List<Order> search(String query) {
+//        if (query == null || query.trim().isEmpty()) {
+//            return getAll();
+//        }
+//
+//        String searchTerm = query.toLowerCase().trim();
+//        cacheHits++;
+//
+//        return allOrders.stream()
+//            .filter(order -> {
+//                String orderId = order.getId() != null ? order.getId().toString().toLowerCase() : "";
+//                return orderId.contains(searchTerm);
+//            })
+//            .collect(Collectors.toList());
+//    }
 
-        String searchTerm = query.toLowerCase().trim();
-        cacheHits++;
-
-        return allOrders.stream()
-            .filter(order -> {
-                String orderId = order.getId() != null ? order.getId().toString().toLowerCase() : "";
-                return orderId.contains(searchTerm);
-            })
-            .collect(Collectors.toList());
-    }
-
-    /**
-     * Get orders within a date range.
-     */
-    public List<Order> getOrdersByDateRange(java.time.LocalDate startDate, java.time.LocalDate endDate) {
-        cacheHits++;
-
-        return allOrders.stream()
-            .filter(order -> {
-                if (order.getOrderDate() == null) return false;
-                boolean afterStart = startDate == null || !order.getOrderDate().isBefore(startDate);
-                boolean beforeEnd = endDate == null || !order.getOrderDate().isAfter(endDate);
-                return afterStart && beforeEnd;
-            })
-            .collect(Collectors.toList());
-    }
 
     /**
      * Get orders with specific status.

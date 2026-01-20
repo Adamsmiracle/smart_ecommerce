@@ -29,6 +29,7 @@ import javafx.stage.Stage;
 
 import java.io.IOException;
 import java.net.URL;
+import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -49,7 +50,7 @@ public class AdminDashboardController implements Initializable {
     @FXML private Button btnInventory;
     @FXML private Button btnOrders;
     @FXML private Button btnUsers;
-//    @FXML private Button btnPerformance;
+    @FXML private Button btnPerformance;
 
     @FXML private Label lblProductCount;
     @FXML private Label lblCategoryCount;
@@ -68,6 +69,8 @@ public class AdminDashboardController implements Initializable {
     private final ProductCategoryService categoryService = new ProductCategoryServiceImpl();
     private final OrderService orderService = new OrderServiceImpl();
     private final UserService userService = new UserServiceImpl();
+
+    private final PerformanceMonitor perfMonitor = PerformanceMonitor.getInstance();
 
     private final ProductCache productCache = ProductCache.getInstance();
     private final CategoryCache categoryCache = CategoryCache.getInstance();
@@ -113,23 +116,37 @@ public class AdminDashboardController implements Initializable {
             @Override
             protected Void call() throws Exception {
 
-                // Check caches first - if empty, load from database
-                products = productCache.getSize() > 0 ? productCache.getAll() : productService.getAllProducts();
+                // Check caches first - if empty, load from database (measure initial DB access)
+                products = productCache.getSize() > 0 ? productCache.getAll() : perfMonitor.measureDbOperation("Initial Load: Get All Products", () -> productService.getAllProducts());
                 if (productCache.getSize() == 0) {
                     productCache.loadAll(products);
                 }
 
-                categories = categoryCache.getSize() > 0 ? categoryCache.getAll() : categoryService.getAllCategories();
+                // categoryService.getAllCategories() throws SQLException; wrap and convert to unchecked inside lambda
+                categories = categoryCache.getSize() > 0 ? categoryCache.getAll() : perfMonitor.measureDbOperation("Initial Load: Get All Categories", () -> {
+                    try {
+                        return categoryService.getAllCategories();
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
                 if (categoryCache.getSize() == 0) {
                     categoryCache.loadAll(categories);
                 }
 
-                orders = orderCache.getSize() > 0 ? orderCache.getAll() : orderService.getAllOrders();
+                orders = orderCache.getSize() > 0 ? orderCache.getAll() : perfMonitor.measureDbOperation("Initial Load: Get All Orders", () -> orderService.getAllOrders());
                 if (orderCache.getSize() == 0) {
                     orderCache.loadAll(orders);
                 }
 
-                users = userCache.getSize() > 0 ? userCache.getAll() : userService.getAllUsers();
+                // userService.getAllUsers() may throw SQLException; wrap similarly
+                users = userCache.getSize() > 0 ? userCache.getAll() : perfMonitor.measureDbOperation("Initial Load: Get All Users", () -> {
+                    try {
+                        return userService.getAllUsers();
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
                 if (userCache.getSize() == 0) {
                     userCache.loadAll(users);
                 }
@@ -273,25 +290,25 @@ public class AdminDashboardController implements Initializable {
         }
     }
 
-//    @FXML
-//    public void showPerformance() {
-//        System.out.println("DEBUG: showPerformance() called");
-//        try {
-//            if (performanceView == null) {
-//                System.out.println("DEBUG: Loading performance-view.fxml...");
-//                FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/amalitech/smartecommerce/performance-view.fxml"));
-//                performanceView = loader.load();
-//                System.out.println("DEBUG: performance-view.fxml loaded successfully");
-//            }
-//            showView(performanceView);
-////            setActiveButton(btnPerformance);
-//            setStatus("Viewing performance metrics");
-//        } catch (IOException e) {
-//            System.err.println("ERROR: Failed to load performance view");
-//            e.printStackTrace();
-//            setStatus("Error loading performance view: " + e.getMessage());
-//        }
-//    }
+    @FXML
+    public void showPerformance() {
+        System.out.println("DEBUG: showPerformance() called");
+        try {
+            if (performanceView == null) {
+                System.out.println("DEBUG: Loading performance-view.fxml...");
+                FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/amalitech/smartecommerce/performance-view.fxml"));
+                performanceView = loader.load();
+                System.out.println("DEBUG: performance-view.fxml loaded successfully");
+            }
+            showView(performanceView);
+            setActiveButton(btnPerformance);
+            setStatus("Viewing performance metrics");
+        } catch (IOException e) {
+            System.err.println("ERROR: Failed to load performance view");
+            e.printStackTrace();
+            setStatus("Error loading performance view: " + e.getMessage());
+        }
+    }
 
     @FXML
     public void quickAddProduct() {
@@ -301,6 +318,70 @@ public class AdminDashboardController implements Initializable {
     @FXML
     public void quickAddCategory() {
         showCategories();
+    }
+
+    @FXML
+    public void handleSeedData() {
+        setStatus("Seeding sample data...");
+        btnDashboard.setDisable(true);
+        btnProducts.setDisable(true);
+        btnCategories.setDisable(true);
+        btnInventory.setDisable(true);
+        btnOrders.setDisable(true);
+        btnUsers.setDisable(true);
+        btnPerformance.setDisable(true);
+
+        Task<Void> seedTask = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                try {
+                    com.amalitech.smartecommerce.model.DBSeeder.seedSampleData();
+                } catch (Exception e) {
+                    throw e;
+                }
+                return null;
+            }
+
+            @Override
+            protected void succeeded() {
+                Platform.runLater(() -> {
+                    setStatus("Seeding complete. Refreshing dashboard...");
+                    // reload caches and dashboard data
+                    productCache.clear();
+                    categoryCache.clear();
+                    orderCache.clear();
+                    userCache.clear();
+                    InventoryCache.getInstance().clear();
+                    loadDataAsync();
+
+                    btnDashboard.setDisable(false);
+                    btnProducts.setDisable(false);
+                    btnCategories.setDisable(false);
+                    btnInventory.setDisable(false);
+                    btnOrders.setDisable(false);
+                    btnUsers.setDisable(false);
+                    btnPerformance.setDisable(false);
+                });
+            }
+
+            @Override
+            protected void failed() {
+                Platform.runLater(() -> {
+                    setStatus("Seeding failed: " + getException().getMessage());
+                    btnDashboard.setDisable(false);
+                    btnProducts.setDisable(false);
+                    btnCategories.setDisable(false);
+                    btnInventory.setDisable(false);
+                    btnOrders.setDisable(false);
+                    btnUsers.setDisable(false);
+                    btnPerformance.setDisable(false);
+                });
+            }
+        };
+
+        Thread t = new Thread(seedTask, "DB-Seeder-Thread");
+        t.setDaemon(true);
+        t.start();
     }
 
 //    @FXML
@@ -315,10 +396,11 @@ public class AdminDashboardController implements Initializable {
         SessionManager.getInstance().logout();
 
         // Clear all caches to prevent old data from persisting
-        productCache.clear();
+        productService.clearCache();
         categoryCache.clear();
         orderCache.clear();
         userCache.clear();
+        setStatus("All caches cleared.");
         InventoryCache.getInstance().clear();
 
         try {
@@ -357,7 +439,7 @@ public class AdminDashboardController implements Initializable {
         btnInventory.getStyleClass().remove("nav-button-active");
         btnOrders.getStyleClass().remove("nav-button-active");
         btnUsers.getStyleClass().remove("nav-button-active");
-//        btnPerformance.getStyleClass().remove("nav-button-active");
+        btnPerformance.getStyleClass().remove("nav-button-active");
 
         // Add active class to the selected button
         activeBtn.getStyleClass().add("nav-button-active");

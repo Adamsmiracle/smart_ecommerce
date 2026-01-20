@@ -824,6 +824,49 @@
     -fx-padding: 0;
 }
 
+/* Application viewport (used by Main to wrap top-level views) */
+.scroll-pane.app-viewport {
+    -fx-background-color: transparent; /* let inner scenes define background */
+    -fx-padding: 12; /* breathing room around contained view */
+}
+
+/* Style the viewport content region for better visual separation */
+.scroll-pane.app-viewport .viewport {
+    -fx-background-color: #f5f6fa; /* match app background */
+    -fx-background-radius: 8;
+    -fx-padding: 10;
+}
+
+/* Scrollbar customization for a sleeker look */
+.scroll-pane .scroll-bar:vertical {
+    -fx-background-color: transparent;
+    -fx-padding: 0 4 0 0;
+}
+
+.scroll-pane .thumb {
+    -fx-background-color: rgba(0,0,0,0.2);
+    -fx-background-radius: 6;
+}
+
+.scroll-pane .thumb:hover {
+    -fx-background-color: rgba(0,0,0,0.35);
+}
+
+.scroll-pane .track {
+    -fx-background-color: transparent;
+}
+
+/* Prevent content from being clipped by viewport shadow: add subtle inner padding */
+.content-area, .main-container, .login-form, .profile-container {
+    -fx-padding: 10 14 14 14;
+}
+
+/* Ensure ScrollPane content can grow but keeps minimum width to avoid horizontal scroll */
+.scroll-pane .viewport > * {
+    -fx-min-width: 360; /* ensures narrow devices still get comfortable layout */
+    -fx-pref-width: 100%;
+}
+
 /* ========== Split Pane ========== */
 .split-pane {
     -fx-background-color: transparent;

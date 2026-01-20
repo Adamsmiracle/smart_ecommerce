@@ -12,14 +12,15 @@ import java.util.stream.Collectors;
  */
 public class ProductCache {
     private static ProductCache instance;
+    private final com.amalitech.smartecommerce.utils.PerformanceMonitor perf = com.amalitech.smartecommerce.utils.PerformanceMonitor.getInstance();
 
     // Primary cache: id -> Product (mirrors primary key index)
     private final Map<UUID, Product> productById;
 
-    // Secondary index: categoryId -> List<Product> (mirrors category_id index)
+    // Secondary index: categoryId -> List<Product>
     private final Map<UUID, List<Product>> productsByCategory;
 
-    // Secondary index: name (lowercase) -> List<Product> (mirrors name index for search)
+    // Secondary index: name (lowercase) ->
     private final Map<String, List<Product>> productsByNameToken;
 
     // All products list for iteration
@@ -72,8 +73,11 @@ public class ProductCache {
             String[] tokens = product.getName().toLowerCase().split("\\s+");
             for (String token : tokens) {
                 productsByNameToken
-                    .computeIfAbsent(token, k -> new ArrayList<>())
-                    .add(product);
+                    .computeIfAbsent(token, k -> new ArrayList<>());
+                List<Product> tokenList = productsByNameToken.get(token);
+                if (!tokenList.contains(product)) {
+                    tokenList.add(product);
+                }
             }
         }
     }
@@ -82,6 +86,8 @@ public class ProductCache {
      * Get product by ID - O(1) lookup.
      */
     public Product getById(UUID id) {
+        // record internal cache operation for monitoring
+        perf.recordInternalCacheOperation("ProductCache.getById");
         Product product = productById.get(id);
         if (product != null) {
             cacheHits++;
@@ -95,18 +101,20 @@ public class ProductCache {
      * Get all products.
      */
     public List<Product> getAll() {
+        perf.recordInternalCacheOperation("ProductCache.getAll");
         cacheHits++;
-        return new ArrayList<>(allProducts);
+        return dedupePreserveOrder(allProducts);
     }
 
     /**
-     * Get products by category - O(1) lookup.
+     * Get products by category .
      */
     public List<Product> getByCategory(UUID categoryId) {
+        perf.recordInternalCacheOperation("ProductCache.getByCategory");
         List<Product> products = productsByCategory.get(categoryId);
         if (products != null) {
             cacheHits++;
-            return new ArrayList<>(products);
+            return dedupePreserveOrder(products);
         }
         cacheMisses++;
         return new ArrayList<>();
@@ -120,6 +128,7 @@ public class ProductCache {
             return getAll();
         }
 
+        perf.recordInternalCacheOperation("ProductCache.searchByName");
         String lowerQuery = query.toLowerCase().trim();
         Set<Product> results = new HashSet<>();
 
@@ -139,14 +148,23 @@ public class ProductCache {
             }
         }
 
-        return new ArrayList<>(results);
+        return dedupePreserveOrder(new ArrayList<>(results));
     }
 
     /**
      * Add product to cache.
      */
     public void put(Product product) {
+        if (product == null || product.getId() == null) return;
+
+        // If a product with the same id already exists in cache, remove it first to avoid duplicates
+        if (productById.containsKey(product.getId())) {
+            remove(product.getId());
+        }
+
         productById.put(product.getId(), product);
+
+        // Add to master list and indexes
         allProducts.add(product);
 
         productsByCategory
@@ -204,6 +222,7 @@ public class ProductCache {
      * Sort products by name using QuickSort algorithm.
      */
     public List<Product> getAllSortedByName(boolean ascending) {
+        perf.recordInternalCacheOperation("ProductCache.getAllSortedByName");
         List<Product> sorted = new ArrayList<>(allProducts);
         quickSort(sorted, 0, sorted.size() - 1, ascending);
         return sorted;
@@ -212,9 +231,6 @@ public class ProductCache {
     /**
      * Sort products by price (requires ProductItem data, simplified here).
      */
-    public List<Product> getAllSortedByNameDescending() {
-        return getAllSortedByName(false);
-    }
 
     private void quickSort(List<Product> list, int low, int high, boolean ascending) {
         if (low < high) {
@@ -241,31 +257,47 @@ public class ProductCache {
         return i + 1;
     }
 
+//    /**
+//     * Binary search for product by name (requires sorted list).
+//     */
+//    public Product binarySearchByName(String name) {
+//        perf.recordInternalCacheOperation("ProductCache.binarySearchByName");
+//        List<Product> sorted = getAllSortedByName(true);
+//        int left = 0, right = sorted.size() - 1;
+//        String target = name.toLowerCase();
+//
+//        while (left <= right) {
+//            int mid = left + (right - left) / 2;
+//            String midName = sorted.get(mid).getName() != null ?
+//                sorted.get(mid).getName().toLowerCase() : "";
+//
+//            int cmp = midName.compareTo(target);
+//            if (cmp == 0) {
+//                cacheHits++;
+//                return sorted.get(mid);
+//            } else if (cmp < 0) {
+//                left = mid + 1;
+//            } else {
+//                right = mid - 1;
+//            }
+//        }
+//        cacheMisses++;
+//        return null;
+//    }
+
     /**
-     * Binary search for product by name (requires sorted list).
+     * Helper to deduplicate product lists by id while preserving first-seen order.
      */
-    public Product binarySearchByName(String name) {
-        List<Product> sorted = getAllSortedByName(true);
-        int left = 0, right = sorted.size() - 1;
-        String target = name.toLowerCase();
-
-        while (left <= right) {
-            int mid = left + (right - left) / 2;
-            String midName = sorted.get(mid).getName() != null ?
-                sorted.get(mid).getName().toLowerCase() : "";
-
-            int cmp = midName.compareTo(target);
-            if (cmp == 0) {
-                cacheHits++;
-                return sorted.get(mid);
-            } else if (cmp < 0) {
-                left = mid + 1;
-            } else {
-                right = mid - 1;
+    private List<Product> dedupePreserveOrder(List<Product> input) {
+        if (input == null || input.isEmpty()) return new ArrayList<>();
+        Map<UUID, Product> map = new LinkedHashMap<>();
+        for (Product p : input) {
+            if (p == null || p.getId() == null) continue;
+            if (!map.containsKey(p.getId())) {
+                map.put(p.getId(), p);
             }
         }
-        cacheMisses++;
-        return null;
+        return new ArrayList<>(map.values());
     }
 
     // Performance statistics

@@ -15,6 +15,7 @@ import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.geometry.Insets;
+import javafx.scene.layout.HBox;
 import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
 
@@ -662,6 +663,193 @@ public class OrderController implements Initializable {
         alert.setHeaderText("Generated Report");
         alert.getDialogPane().setContent(textArea);
         alert.showAndWait();
+    }
+
+    @FXML
+    public void editOrder() {
+        Order selected = tblOrders.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            showAlert(Alert.AlertType.WARNING, "No Selection", "Please select an order to edit.");
+            return;
+        }
+
+        String status = determineOrderStatus(selected);
+        if (!"Pending".equalsIgnoreCase(status)) {
+            showAlert(Alert.AlertType.WARNING, "Not Editable", "Only orders in 'Pending' state can be edited.");
+            return;
+        }
+
+        // Load current order lines
+        List<com.amalitech.smartecommerce.model.OrderLine> currentLines = orderService.getOrderLinesRaw(selected.getId());
+
+        Dialog<List<com.amalitech.smartecommerce.model.OrderLine>> dialog = new Dialog<>();
+        dialog.setTitle("Edit Order Lines");
+        dialog.setHeaderText("Edit items for Order #" + selected.getId().toString().substring(0,8).toUpperCase());
+
+        VBox content = new VBox(10);
+        content.setPadding(new Insets(12));
+        content.setPrefWidth(600);
+
+        // Container for line rows
+        VBox linesBox = new VBox(8);
+
+        // Map row UI to OrderLine
+        Map<HBox, com.amalitech.smartecommerce.model.OrderLine> rowMap = new LinkedHashMap<>();
+
+        // Build UI rows for existing lines
+        for (com.amalitech.smartecommerce.model.OrderLine ol : currentLines) {
+            HBox row = buildOrderLineRow(ol, rowMap);
+            linesBox.getChildren().add(row);
+        }
+
+        // Button to add new line (select product and qty)
+        Button addBtn = new Button("Add Item");
+        addBtn.setOnAction(e -> {
+            com.amalitech.smartecommerce.model.OrderLine newOl = new com.amalitech.smartecommerce.model.OrderLine();
+            newOl.setId(java.util.UUID.randomUUID());
+            newOl.setOrderId(selected.getId());
+            newOl.setQty(1);
+            // Product selection default to first product if available
+            List<com.amalitech.smartecommerce.model.Product> prods = productService.getAllProducts();
+            if (!prods.isEmpty()) {
+                com.amalitech.smartecommerce.model.Product p = prods.get(0);
+                UUID pid = productService.getProductItemByProductId(p.getId()) != null ? productService.getProductItemByProductId(p.getId()).getId() : null;
+                newOl.setProductItemId(pid);
+                newOl.setPrice(productService.getProductItemByProductId(p.getId()) != null ? productService.getProductItemByProductId(p.getId()).getPrice() : 0.0);
+            }
+            HBox row = buildOrderLineRow(newOl, rowMap);
+            linesBox.getChildren().add(row);
+        });
+
+        ScrollPane scroll = new ScrollPane(linesBox);
+        scroll.setFitToWidth(true);
+        scroll.setPrefHeight(300);
+
+        content.getChildren().addAll(scroll, addBtn);
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        dialog.setResultConverter(btn -> {
+            if (btn == ButtonType.OK) {
+                // collect order lines from rowMap
+                return new ArrayList<>(rowMap.values());
+            }
+            return null;
+        });
+
+        Optional<List<com.amalitech.smartecommerce.model.OrderLine>> result = dialog.showAndWait();
+        result.ifPresent(newLines -> {
+            // Call service to modify lines in background
+            Task<Order> task = new Task<>() {
+                @Override
+                protected Order call() throws Exception {
+                    return orderService.modifyOrderLines(selected.getId(), newLines);
+                }
+
+                @Override
+                protected void succeeded() {
+                    Platform.runLater(() -> {
+                        Order updated = getValue();
+                        if (updated != null) {
+                            // Refresh cache and UI
+                            orderCache.update(updated);
+                            loadOrders();
+                            showAlert(Alert.AlertType.INFORMATION, "Success", "Order updated successfully.");
+                        } else {
+                            showAlert(Alert.AlertType.ERROR, "Error", "Failed to update order.");
+                        }
+                    });
+                }
+
+                @Override
+                protected void failed() {
+                    Platform.runLater(() -> {
+                        showAlert(Alert.AlertType.ERROR, "Error", "Failed to update order: " + getException().getMessage());
+                    });
+                }
+            };
+            new Thread(task).start();
+        });
+    }
+
+    private HBox buildOrderLineRow(com.amalitech.smartecommerce.model.OrderLine ol, Map<HBox, com.amalitech.smartecommerce.model.OrderLine> rowMap) {
+        HBox row = new HBox(10);
+        row.setPadding(new Insets(6));
+        row.setStyle("-fx-background-color: white; -fx-border-color: #e0e0e0; -fx-border-radius: 6; -fx-background-radius: 6;");
+
+        // Product combo
+        ComboBox<com.amalitech.smartecommerce.model.Product> prodCombo = new ComboBox<>();
+        List<com.amalitech.smartecommerce.model.Product> products = productService.getAllProducts();
+        prodCombo.setItems(FXCollections.observableArrayList(products));
+        prodCombo.setCellFactory(lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(com.amalitech.smartecommerce.model.Product item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.getName());
+            }
+        });
+        prodCombo.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(com.amalitech.smartecommerce.model.Product item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "Select product" : item.getName());
+            }
+        });
+        prodCombo.setPrefWidth(260);
+
+        // If ol has product_item id, pre-select its product
+        if (ol.getProductItemId() != null) {
+            com.amalitech.smartecommerce.model.ProductItem pi = productService.getProductItemByProductId(null);
+            // best-effort: we don't have direct map here; rely on user to select product when editing
+        }
+
+        // Quantity field
+        Spinner<Integer> qtySpinner = new Spinner<>(1, 1000, ol.getQty());
+        qtySpinner.setEditable(true);
+        qtySpinner.setPrefWidth(90);
+
+        // Price field
+        TextField priceField = new TextField(String.format("%.2f", ol.getPrice()));
+        priceField.setPrefWidth(100);
+
+        // Remove button
+        Button removeBtn = new Button("Remove");
+        removeBtn.setOnAction(e -> {
+            rowMap.remove(row);
+            ((VBox) row.getParent()).getChildren().remove(row);
+        });
+
+        row.getChildren().addAll(prodCombo, qtySpinner, priceField, removeBtn);
+
+        // Keep the mapping between UI row and OrderLine
+        ol.setQty(qtySpinner.getValue());
+        try {
+            ol.setPrice(Double.parseDouble(priceField.getText()));
+        } catch (NumberFormatException ex) {
+            ol.setPrice(0.0);
+        }
+        rowMap.put(row, ol);
+
+        // Update OrderLine when UI changes
+        qtySpinner.valueProperty().addListener((obs, oldV, newV) -> rowMap.get(row).setQty(newV));
+        priceField.textProperty().addListener((obs, oldV, newV) -> {
+            try { rowMap.get(row).setPrice(Double.parseDouble(newV)); } catch (NumberFormatException ex) { /* ignore */ }
+        });
+        prodCombo.valueProperty().addListener((obs, oldV, newV) -> {
+            if (newV != null) {
+                // Try to get product_item id for selected product
+                var pi = productService.getProductItemByProductId(newV.getId());
+                if (pi != null) {
+                    rowMap.get(row).setProductItemId(pi.getId());
+                    rowMap.get(row).setPrice(pi.getPrice());
+                    priceField.setText(String.format("%.2f", pi.getPrice()));
+                } else {
+                    rowMap.get(row).setProductItemId(null);
+                }
+            }
+        });
+
+        return row;
     }
 
     private void showAlert(Alert.AlertType type, String title, String message) {

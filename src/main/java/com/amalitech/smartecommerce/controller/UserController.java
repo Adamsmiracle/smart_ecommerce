@@ -150,10 +150,35 @@ public class UserController implements Initializable {
                     Platform.runLater(() -> {
                         User created = getValue();
                         if (created != null) {
-                            // Add to cache and lists
+                            // Add/update in cache and controller lists avoiding duplicates
                             userCache.put(created);
-                            allUsers.add(created);
-                            userList.add(created);
+
+                            // Update allUsers list: replace existing entry with same id or add
+                            boolean foundInAll = false;
+                            for (int i = 0; i < allUsers.size(); i++) {
+                                if (allUsers.get(i).getId().equals(created.getId())) {
+                                    allUsers.set(i, created);
+                                    foundInAll = true;
+                                    break;
+                                }
+                            }
+                            if (!foundInAll) {
+                                allUsers.add(created);
+                            }
+
+                            // Update observable userList (table view list)
+                            boolean foundInList = false;
+                            for (int i = 0; i < userList.size(); i++) {
+                                if (userList.get(i).getId().equals(created.getId())) {
+                                    userList.set(i, created);
+                                    foundInList = true;
+                                    break;
+                                }
+                            }
+                            if (!foundInList) {
+                                userList.add(created);
+                            }
+
                             lblTotalUsers.setText("Total Users: " + allUsers.size());
                             tblUsers.refresh();
                             showAlert(Alert.AlertType.INFORMATION, "Success", "User created successfully!");

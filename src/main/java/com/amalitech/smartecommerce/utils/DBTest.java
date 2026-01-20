@@ -1,6 +1,7 @@
 package com.amalitech.smartecommerce.utils;
 
 import com.amalitech.smartecommerce.model.SchemaCreator;
+import com.amalitech.smartecommerce.model.DBSeeder;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -12,7 +13,14 @@ public class DBTest {
 
             if (connection != null && !connection.isClosed()) {
                 System.out.println("Database connection successful!");
-                SchemaCreator.createTablesFromSchema();
+                // Use the new initializer which checks and runs DDL only once
+                DBInitializer.ensureSchemaCreated();
+
+                // Optionally run seeder controlled by RUN_SEEDER env var (dev only)
+                boolean runSeeder = Boolean.parseBoolean(System.getProperty("RUN_SEEDER", System.getenv().getOrDefault("RUN_SEEDER", "false")));
+                if (runSeeder) {
+                    DBSeeder.seedSampleData();
+                }
 
             } else {
                 System.out.println("Database connection failed.");

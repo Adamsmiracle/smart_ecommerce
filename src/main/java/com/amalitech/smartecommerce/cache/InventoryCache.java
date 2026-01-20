@@ -16,6 +16,9 @@ public class InventoryCache {
     // Primary cache: productId -> ProductItem (mirrors product_id index)
     private final Map<UUID, ProductItem> inventoryByProductId;
 
+    // Secondary cache: productItemId -> ProductItem (mirrors product_item.id)
+    private final Map<UUID, ProductItem> inventoryById;
+
     // All inventory items list for iteration
     private List<ProductItem> allInventory;
 
@@ -26,6 +29,7 @@ public class InventoryCache {
 
     private InventoryCache() {
         this.inventoryByProductId = new ConcurrentHashMap<>();
+        this.inventoryById = new ConcurrentHashMap<>();
         this.allInventory = new ArrayList<>();
     }
 
@@ -46,6 +50,8 @@ public class InventoryCache {
         for (ProductItem item : items) {
             // Primary index: by product ID
             inventoryByProductId.put(item.getProductId(), item);
+            // Secondary index: by product_item id
+            if (item.getId() != null) inventoryById.put(item.getId(), item);
         }
 
         lastRefreshTime = System.currentTimeMillis();
@@ -65,6 +71,15 @@ public class InventoryCache {
     }
 
     /**
+     * Get inventory by the product_item id (primary key in product_item table). O(1).
+     */
+    public ProductItem getById(UUID productItemId) {
+        ProductItem item = inventoryById.get(productItemId);
+        if (item != null) cacheHits++; else cacheMisses++;
+        return item;
+    }
+
+    /**
      * Get all inventory items.
      */
     public List<ProductItem> getAll() {
@@ -79,6 +94,7 @@ public class InventoryCache {
     public void update(ProductItem item) {
         if (item != null && item.getProductId() != null) {
             inventoryByProductId.put(item.getProductId(), item);
+            if (item.getId() != null) inventoryById.put(item.getId(), item);
             // Update in allInventory list
             allInventory = allInventory.stream()
                 .map(existing -> existing.getProductId().equals(item.getProductId()) ? item : existing)
@@ -92,6 +108,7 @@ public class InventoryCache {
     public void add(ProductItem item) {
         if (item != null && item.getProductId() != null) {
             inventoryByProductId.put(item.getProductId(), item);
+            if (item.getId() != null) inventoryById.put(item.getId(), item);
             allInventory.add(item);
         }
     }
@@ -101,7 +118,8 @@ public class InventoryCache {
      */
     public void remove(UUID productId) {
         if (productId != null) {
-            inventoryByProductId.remove(productId);
+            ProductItem removed = inventoryByProductId.remove(productId);
+            if (removed != null && removed.getId() != null) inventoryById.remove(removed.getId());
             allInventory = allInventory.stream()
                 .filter(item -> !item.getProductId().equals(productId))
                 .collect(Collectors.toList());
@@ -146,6 +164,7 @@ public class InventoryCache {
      */
     public void clear() {
         inventoryByProductId.clear();
+        inventoryById.clear();
         allInventory.clear();
         cacheHits = 0;
         cacheMisses = 0;

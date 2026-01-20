@@ -1,7 +1,9 @@
 package com.amalitech.smartecommerce.utils;
 
 import com.amalitech.smartecommerce.cache.InventoryCache;
+import com.amalitech.smartecommerce.dao.ProductItemDao;
 import com.amalitech.smartecommerce.model.Product;
+import com.amalitech.smartecommerce.model.ProductItem;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 
@@ -90,7 +92,7 @@ public class CartManager {
 
     /**
      * Gets the price of a product from the InventoryCache.
-     * Falls back to database if cache is empty (for safety).
+     * Falls back to DAO if cache is empty (for safety).
      */
     private double getProductPrice(UUID productId) {
         if (productId == null) return 0.0;
@@ -104,19 +106,14 @@ public class CartManager {
             return price;
         }
 
-        // Fallback to database if cache is empty
+        // Fallback to DAO if cache is empty
         try {
-            java.sql.Connection conn = DBConnection.getConnection();
-            String sql = "SELECT price FROM product_item WHERE product_id = ? LIMIT 1";
-            try (java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setObject(1, productId);
-                try (java.sql.ResultSet rs = stmt.executeQuery()) {
-                    if (rs.next()) {
-                        return rs.getDouble("price");
-                    }
-                }
+            ProductItemDao productItemDao = new ProductItemDao();
+            ProductItem pi = productItemDao.findByProductId(productId);
+            if (pi != null) {
+                return pi.getPrice();
             }
-        } catch (java.sql.SQLException e) {
+        } catch (Exception e) {
             // Silently fail - return 0 if price not found
         }
         return 0.0;
@@ -169,4 +166,3 @@ public class CartManager {
         }
     }
 }
-

@@ -1,7 +1,6 @@
 package com.amalitech.smartecommerce.controller;
 
 import com.amalitech.smartecommerce.cache.CategoryCache;
-import com.amalitech.smartecommerce.cache.ProductCache;
 import com.amalitech.smartecommerce.model.Product;
 import com.amalitech.smartecommerce.model.ProductCategory;
 import com.amalitech.smartecommerce.service.ProductCategoryService;
@@ -35,7 +34,7 @@ public class CategoryController implements Initializable {
 
     private final ProductCategoryService categoryService = new ProductCategoryServiceImpl();
     private final CategoryCache categoryCache = CategoryCache.getInstance();
-    private final ProductCache productCache = ProductCache.getInstance();
+    private final com.amalitech.smartecommerce.service.ProductService productService = new com.amalitech.smartecommerce.service.ProductServiceImpl();
 
     private ObservableList<ProductCategory> categoryList = FXCollections.observableArrayList();
 
@@ -59,10 +58,10 @@ public class CategoryController implements Initializable {
             return new SimpleStringProperty(parent != null ? parent.getCategoryName() : "Unknown");
         });
 
-        // Product count column
+        // Product count column — ask service for products in this category
         colProductCount.setCellValueFactory(cellData -> {
             UUID categoryId = cellData.getValue().getId();
-            List<Product> products = productCache.getByCategory(categoryId);
+            List<Product> products = productService.getProductsByCategoryId(categoryId);
             return new SimpleIntegerProperty(products.size()).asObject();
         });
 
@@ -235,7 +234,7 @@ public class CategoryController implements Initializable {
         }
 
         // Check if category has products
-        List<Product> products = productCache.getByCategory(selected.getId());
+        List<Product> products = productService.getProductsByCategoryId(selected.getId());
         if (!products.isEmpty()) {
             showAlert(Alert.AlertType.WARNING, "Cannot Delete",
                 "This category has " + products.size() + " products. Remove or reassign them first.");

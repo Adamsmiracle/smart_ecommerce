@@ -35,7 +35,7 @@
         <Button text="Edit" onAction="#showEditDialog" styleClass="secondary-button"/>
         <Button text="Delete" onAction="#deleteProduct" styleClass="danger-button"/>
         <Region HBox.hgrow="ALWAYS" minWidth="20"/>
-        <Label fx:id="lblQueryTime" text="Query Time: 0ms" styleClass="info-label"/>
+        <Label fx:id="lblQueryTime" styleClass="info-label"/>
     </FlowPane>
 
     <!-- Products Table -->

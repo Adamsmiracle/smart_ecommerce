@@ -85,17 +85,32 @@ public class UserDaoImpl implements UserDao {
 
     @Override
     public User update(User user) {
-        String sql = "UPDATE app_user SET email_address = ?, first_name = ?, last_name = ?, phone_number = ?, password = ? WHERE id = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, user.getEmailAddress());
-            stmt.setString(2, user.getFirstName());
-            stmt.setString(3, user.getLastName());
-            stmt.setString(4, user.getPhoneNumber());
-            stmt.setString(5, user.getPassword());
-            stmt.setObject(6, user.getId());
-            if (stmt.executeUpdate() > 0) {
-                return user;
+        // Only update password when provided (non-null and non-empty). This prevents accidental
+        // clearing of password when the UI doesn't supply it.
+        boolean hasPassword = user.getPassword() != null && !user.getPassword().trim().isEmpty();
+        String sqlWithPassword = "UPDATE app_user SET email_address = ?, first_name = ?, last_name = ?, phone_number = ?, password = ? WHERE id = ?";
+        String sqlWithoutPassword = "UPDATE app_user SET email_address = ?, first_name = ?, last_name = ?, phone_number = ? WHERE id = ?";
+
+        try (Connection conn = DBConnection.getConnection()) {
+            if (hasPassword) {
+                try (PreparedStatement stmt = conn.prepareStatement(sqlWithPassword)) {
+                    stmt.setString(1, user.getEmailAddress());
+                    stmt.setString(2, user.getFirstName());
+                    stmt.setString(3, user.getLastName());
+                    stmt.setString(4, user.getPhoneNumber());
+                    stmt.setString(5, user.getPassword());
+                    stmt.setObject(6, user.getId());
+                    if (stmt.executeUpdate() > 0) return user;
+                }
+            } else {
+                try (PreparedStatement stmt = conn.prepareStatement(sqlWithoutPassword)) {
+                    stmt.setString(1, user.getEmailAddress());
+                    stmt.setString(2, user.getFirstName());
+                    stmt.setString(3, user.getLastName());
+                    stmt.setString(4, user.getPhoneNumber());
+                    stmt.setObject(5, user.getId());
+                    if (stmt.executeUpdate() > 0) return user;
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();

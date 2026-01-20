@@ -10,16 +10,21 @@ public class PerformanceMonitor {
     private static PerformanceMonitor instance;
 
     private final List<PerformanceRecord> records;
-    private long totalDbTime = 0;
-    private long totalCacheTime = 0;
+    // store internal totals in microseconds to preserve precision for very fast ops
+    private long totalDbTimeMicros = 0;
+    private long totalCacheTimeMicros = 0;
     private int dbOperations = 0;
     private int cacheOperations = 0;
+
+    // Thread-local flag to indicate that the current thread is already measuring a cache operation
+    // This prevents double-counting when callers use measureCacheOperation() around cache method calls.
+    private final ThreadLocal<Boolean> inCacheMeasurement = ThreadLocal.withInitial(() -> false);
 
     private PerformanceMonitor() {
         this.records = new ArrayList<>();
     }
 
-    public static  PerformanceMonitor getInstance() {
+    public static PerformanceMonitor getInstance() {
         if (instance == null) {
             instance = new PerformanceMonitor();
         }
@@ -27,51 +32,77 @@ public class PerformanceMonitor {
     }
 
     /**
-     * Record a database operation timing.
+     * Record a database operation timing (duration in microseconds).
      */
-    public void recordDbOperation(String operation, long durationMs) {
-        records.add(new PerformanceRecord(operation, "DATABASE", durationMs));
-        totalDbTime += durationMs;
+    public void recordDbOperation(String operation, long durationMicros) {
+        records.add(new PerformanceRecord(operation, "DATABASE", durationMicros));
+        totalDbTimeMicros += durationMicros;
         dbOperations++;
     }
 
     /**
-     * Record a cache operation timing.
+     * Record a cache operation timing (duration in microseconds).
      */
-    public void recordCacheOperation(String operation, long durationMs) {
-        records.add(new PerformanceRecord(operation, "CACHE", durationMs));
-        totalCacheTime += durationMs;
+    public void recordCacheOperation(String operation, long durationMicros) {
+        records.add(new PerformanceRecord(operation, "CACHE", durationMicros));
+        totalCacheTimeMicros += durationMicros;
         cacheOperations++;
     }
 
     /**
-     * Measure execution time of a database operation.
+     * Measure execution time of a database operation and record in microseconds.
      */
     public <T> T measureDbOperation(String operation, java.util.function.Supplier<T> supplier) {
         long start = System.nanoTime();
         T result = supplier.get();
-        long duration = (System.nanoTime() - start) / 1_000_000; // Convert to ms
-        recordDbOperation(operation, duration);
+        long durationMicros = (System.nanoTime() - start) / 1000; // microseconds
+        recordDbOperation(operation, durationMicros);
         return result;
     }
 
     /**
-     * Measure execution time of a cache operation.
+     * Measure execution time of a cache operation and record in microseconds.
      */
     public <T> T measureCacheOperation(String operation, java.util.function.Supplier<T> supplier) {
         long start = System.nanoTime();
-        T result = supplier.get();
-        long duration = (System.nanoTime() - start) / 1_000_000; // Convert to ms
-        recordCacheOperation(operation, duration);
-        return result;
+        // mark that we are in an explicit cache measurement for this thread
+        inCacheMeasurement.set(true);
+        try {
+            T result = supplier.get();
+            long durationMicros = (System.nanoTime() - start) / 1000; // microseconds
+            recordCacheOperation(operation, durationMicros);
+            return result;
+        } finally {
+            inCacheMeasurement.set(false);
+        }
     }
 
+    /**
+     * Helper for cache-accessing code to record a cache operation when it is not already
+     * wrapped by an outer measureCacheOperation call. This avoids double-counting.
+     * The duration will be recorded as 0 microseconds for internal notifications.
+     */
+    public void recordInternalCacheOperation(String operation) {
+        if (inCacheMeasurement.get() != null && inCacheMeasurement.get()) {
+            // already counted by outer measurement, skip internal recording
+            return;
+        }
+        // record with zero duration to indicate internal access
+        recordCacheOperation(operation, 0);
+    }
+
+    /**
+     * Average DB time in milliseconds (can be fractional).
+     */
     public double getAverageDbTime() {
-        return dbOperations > 0 ? (double) totalDbTime / dbOperations : 0;
+        return dbOperations > 0 ? (double) totalDbTimeMicros / dbOperations / 1000.0 : 0;
     }
 
+    /**
+     * Average cache time in milliseconds (can be fractional).
+     */
     public double getAverageCacheTime() {
-        return cacheOperations > 0 ? (double) totalCacheTime / cacheOperations : 0;
+        return cacheOperations > 0 ? (double) totalCacheTimeMicros / cacheOperations / 1000.0 : 0;
     }
 
     public double getSpeedupFactor() {
@@ -80,8 +111,30 @@ public class PerformanceMonitor {
         return avgCache > 0 ? avgDb / avgCache : 0;
     }
 
-    public long getTotalDbTime() { return totalDbTime; }
-    public long getTotalCacheTime() { return totalCacheTime; }
+    // New helper: compute average duration for records matching an operation substring and type (returns ms)
+    public double getAverageTimeForOperation(String operationContains, String type) {
+        if (operationContains == null || type == null) return 0;
+        long totalMicros = 0;
+        int count = 0;
+        for (PerformanceRecord r : records) {
+            if (r.getType().equalsIgnoreCase(type) && r.getOperation().contains(operationContains)) {
+                totalMicros += r.getDurationMicros();
+                count++;
+            }
+        }
+        return count > 0 ? (double) totalMicros / count / 1000.0 : 0;
+    }
+
+    // New helper: compute speedup (db/cache) for a specific operation substring
+    public double getSpeedupFactorForOperation(String operationContains) {
+        double avgDb = getAverageTimeForOperation(operationContains, "DATABASE");
+        double avgCache = getAverageTimeForOperation(operationContains, "CACHE");
+        return avgCache > 0 ? avgDb / avgCache : 0;
+    }
+
+    // Expose totals (in milliseconds) for compatibility
+    public long getTotalDbTime() { return totalDbTimeMicros / 1000; }
+    public long getTotalCacheTime() { return totalCacheTimeMicros / 1000; }
     public int getDbOperations() { return dbOperations; }
     public int getCacheOperations() { return cacheOperations; }
 
@@ -96,10 +149,11 @@ public class PerformanceMonitor {
 
     public void reset() {
         records.clear();
-        totalDbTime = 0;
-        totalCacheTime = 0;
+        totalDbTimeMicros = 0;
+        totalCacheTimeMicros = 0;
         dbOperations = 0;
         cacheOperations = 0;
+        inCacheMeasurement.remove();
     }
 
     public String generateReport() {
@@ -108,17 +162,17 @@ public class PerformanceMonitor {
 
         sb.append("DATABASE OPERATIONS:\n");
         sb.append(String.format("  Total Operations: %d\n", dbOperations));
-        sb.append(String.format("  Total Time: %d ms\n", totalDbTime));
+        sb.append(String.format("  Total Time: %d ms\n", getTotalDbTime()));
         sb.append(String.format("  Average Time: %.2f ms\n\n", getAverageDbTime()));
 
         sb.append("CACHE OPERATIONS:\n");
         sb.append(String.format("  Total Operations: %d\n", cacheOperations));
-        sb.append(String.format("  Total Time: %d ms\n", totalCacheTime));
+        sb.append(String.format("  Total Time: %d ms\n", getTotalCacheTime()));
         sb.append(String.format("  Average Time: %.2f ms\n\n", getAverageCacheTime()));
 
         sb.append("OPTIMIZATION RESULTS:\n");
         sb.append(String.format("  Speedup Factor: %.2fx faster with cache\n", getSpeedupFactor()));
-        sb.append(String.format("  Time Saved: %d ms\n", totalDbTime - totalCacheTime));
+        sb.append(String.format("  Time Saved: %d ms\n", getTotalDbTime() - getTotalCacheTime()));
 
         return sb.toString();
     }
@@ -126,20 +180,23 @@ public class PerformanceMonitor {
     public static class PerformanceRecord {
         private final String operation;
         private final String type;
-        private final long durationMs;
+        // duration in microseconds to maintain precision for very fast ops
+        private final long durationMicros;
         private final long timestamp;
 
-        public PerformanceRecord(String operation, String type, long durationMs) {
+        public PerformanceRecord(String operation, String type, long durationMicros) {
             this.operation = operation;
             this.type = type;
-            this.durationMs = durationMs;
+            this.durationMicros = durationMicros;
             this.timestamp = System.currentTimeMillis();
         }
 
         public String getOperation() { return operation; }
         public String getType() { return type; }
-        public long getDurationMs() { return durationMs; }
+        // keep existing method name but return milliseconds (rounded)
+        public long getDurationMs() { return durationMicros / 1000; }
+        // new accessor for raw microseconds
+        public long getDurationMicros() { return durationMicros; }
         public long getTimestamp() { return timestamp; }
     }
 }
-

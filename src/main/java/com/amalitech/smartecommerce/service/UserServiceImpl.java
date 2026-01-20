@@ -80,7 +80,26 @@ public class UserServiceImpl implements UserService {
         if (userId.trim().isEmpty()){
             throw new IllegalArgumentException("user ID cannot be empty");
         }
-        return userDao.update(user);
+        // If a plain password was provided, hash it before updating
+        String pwd = user.getPassword();
+        if (pwd != null && !pwd.trim().isEmpty()) {
+            // If it doesn't look like a bcrypt hash, hash it
+            if (!(pwd.startsWith("$2a$") || pwd.startsWith("$2b$") || pwd.startsWith("$2y$"))) {
+                try {
+                    String hashed = UserUtils.hashPassword(pwd);
+                    user.setPassword(hashed);
+                } catch (RuntimeException ex) {
+                    throw new SQLException("Failed to hash password", ex);
+                }
+            }
+        }
+
+        // Delegate to DAO; DAO returns null on failure so wrap and propagate exception for callers
+        User updated = userDao.update(user);
+        if (updated == null) {
+            throw new SQLException("Failed to update user with id: " + user.getId());
+        }
+        return updated;
     }
 
 

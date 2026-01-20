@@ -18,7 +18,8 @@
     <FlowPane hgap="15" vgap="10" alignment="CENTER_LEFT">
         <Label text="Performance Monitor" styleClass="page-title" wrapText="true"/>
         <Region HBox.hgrow="ALWAYS" minWidth="20"/>
-        <Button text="Run Benchmark" onAction="#runBenchmark" styleClass="action-button"/>
+        <!-- Progress indicator (spinner) -->
+        <ProgressIndicator fx:id="progressIndicator" visible="false" prefWidth="20" prefHeight="20"/>
         <Button text="Reset Stats" onAction="#resetStats" styleClass="secondary-button"/>
         <Button text="Export Report" onAction="#exportReport" styleClass="secondary-button"/>
     </FlowPane>
@@ -61,47 +62,7 @@
             </FlowPane>
         </VBox>
 
-        <VBox styleClass="perf-card perf-card-highlight" spacing="10" prefWidth="220" minWidth="180">
-            <Label text="Optimization Result" styleClass="card-title"/>
-            <VBox alignment="CENTER">
-                <Label fx:id="lblSpeedupFactor" text="0x" styleClass="perf-number-large"/>
-                <Label text="Speedup Factor" styleClass="perf-label"/>
-            </VBox>
-        </VBox>
     </FlowPane>
-
-    <!-- Charts -->
-    <FlowPane hgap="20" vgap="20" VBox.vgrow="ALWAYS" prefWrapLength="900" alignment="CENTER">
-        <VBox spacing="10" prefWidth="400" minWidth="300" VBox.vgrow="ALWAYS">
-            <Label text="Query Time Comparison" styleClass="section-title"/>
-            <BarChart fx:id="chartComparison" VBox.vgrow="ALWAYS" minHeight="200">
-                <xAxis>
-                    <CategoryAxis label="Operation Type"/>
-                </xAxis>
-                <yAxis>
-                    <NumberAxis label="Time (ms)"/>
-                </yAxis>
-            </BarChart>
-        </VBox>
-
-        <VBox spacing="10" prefWidth="400" minWidth="300" VBox.vgrow="ALWAYS">
-            <Label text="Cache Hit/Miss Ratio" styleClass="section-title"/>
-            <PieChart fx:id="chartCacheRatio" VBox.vgrow="ALWAYS" minHeight="200"/>
-        </VBox>
-    </FlowPane>
-
-    <!-- Recent Operations Log -->
-    <VBox spacing="10" fillWidth="true">
-        <Label text="Recent Operations" styleClass="section-title"/>
-        <TableView fx:id="tblOperations" prefHeight="200" minHeight="150">
-            <columns>
-                <TableColumn fx:id="colTimestamp" text="Timestamp" minWidth="120" prefWidth="160"/>
-                <TableColumn fx:id="colOperation" text="Operation" minWidth="150" prefWidth="220"/>
-                <TableColumn fx:id="colType" text="Type" minWidth="70" prefWidth="90"/>
-                <TableColumn fx:id="colDuration" text="Duration (ms)" minWidth="90" prefWidth="110"/>
-            </columns>
-        </TableView>
-    </VBox>
 
     <!-- Performance Report Text -->
     <VBox spacing="10" fillWidth="true" VBox.vgrow="NEVER">
@@ -110,4 +71,3 @@
     </VBox>
     </VBox>
 </ScrollPane>
-

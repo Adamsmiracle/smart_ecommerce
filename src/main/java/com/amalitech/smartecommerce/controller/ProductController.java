@@ -24,12 +24,16 @@ import javafx.geometry.Insets;
 
 import java.net.URL;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Controller for product management view.
  * Implements CRUD operations with caching and performance monitoring.
  */
 public class ProductController implements Initializable {
+
+    // Guard to prevent double submissions when creating a product
+    private final AtomicBoolean creatingProduct = new AtomicBoolean(false);
 
     @FXML private TextField txtSearch;
     @FXML private ComboBox<ProductCategory> cmbCategory;
@@ -130,7 +134,7 @@ public class ProductController implements Initializable {
             protected void succeeded() {
                 Platform.runLater(() -> {
                     List<Product> products = getValue();
-                    allFilteredProducts = new ArrayList<>(products);
+                    allFilteredProducts = dedupeByIdPreserveOrder(new ArrayList<>(products));
                     currentPage = 0;
                     updateTableWithPagination();
                     lblTotalProducts.setText(String.format("Total: %d products", products.size()));
@@ -164,18 +168,12 @@ public class ProductController implements Initializable {
         long queryTime = System.currentTimeMillis() - startTime;
         lblQueryTime.setText(String.format("Query Time: %d ms", queryTime));
 
-        allFilteredProducts = new ArrayList<>(results);
+        allFilteredProducts = dedupeByIdPreserveOrder(new ArrayList<>(results));
         currentPage = 0;
         updateTableWithPagination();
         lblTotalProducts.setText(String.format("Found: %d products", results.size()));
     }
 
-    @FXML
-    public void clearSearch() {
-        txtSearch.clear();
-        cmbCategory.getSelectionModel().clearSelection();
-        loadProducts();
-    }
 
     private void filterByCategory() {
         ProductCategory selected = cmbCategory.getValue();
@@ -198,7 +196,7 @@ public class ProductController implements Initializable {
         long queryTime = System.currentTimeMillis() - startTime;
         lblQueryTime.setText(String.format("Query Time: %d ms", queryTime));
 
-        allFilteredProducts = new ArrayList<>(results);
+        allFilteredProducts = dedupeByIdPreserveOrder(new ArrayList<>(results));
         currentPage = 0;
         updateTableWithPagination();
         lblTotalProducts.setText(String.format("Found: %d products", results.size()));
@@ -234,13 +232,15 @@ public class ProductController implements Initializable {
         updateTableWithPagination();
     }
 
+
     private void updateTableWithPagination() {
         int totalPages = (int) Math.ceil((double) allFilteredProducts.size() / PAGE_SIZE);
         int fromIndex = currentPage * PAGE_SIZE;
         int toIndex = Math.min(fromIndex + PAGE_SIZE, allFilteredProducts.size());
 
         if (fromIndex < allFilteredProducts.size()) {
-            productList.setAll(allFilteredProducts.subList(fromIndex, toIndex));
+            List<Product> page = new ArrayList<>(allFilteredProducts.subList(fromIndex, toIndex));
+            productList.setAll(dedupeByIdPreserveOrder(page));
         } else {
             productList.clear();
         }
@@ -248,6 +248,16 @@ public class ProductController implements Initializable {
         lblPageInfo.setText(String.format("Page %d of %d", currentPage + 1, Math.max(1, totalPages)));
         btnPrevPage.setDisable(currentPage == 0);
         btnNextPage.setDisable(currentPage >= totalPages - 1);
+    }
+
+    private List<Product> dedupeByIdPreserveOrder(List<Product> input) {
+        if (input == null || input.isEmpty()) return new ArrayList<>();
+        java.util.LinkedHashMap<java.util.UUID, Product> map = new java.util.LinkedHashMap<>();
+        for (Product p : input) {
+            if (p == null || p.getId() == null) continue;
+            if (!map.containsKey(p.getId())) map.put(p.getId(), p);
+        }
+        return new ArrayList<>(map.values());
     }
 
     @FXML
@@ -269,27 +279,54 @@ public class ProductController implements Initializable {
 
     @FXML
     public void showAddDialog() {
+        // Prevent re-entrance (double-click / double-submit)
+        if (!creatingProduct.compareAndSet(false, true)) {
+            // Optionally provide feedback to the user
+            showAlert(Alert.AlertType.WARNING, "Action in progress", "A product creation is already in progress. Please wait.");
+            return;
+        }
+
         Dialog<ProductWithPrice> dialog = createProductDialog(null);
         Optional<ProductWithPrice> result = dialog.showAndWait();
 
-        result.ifPresent(productWithPrice -> {
-            try {
-                Product created = productService.createProductWithPrice(
-                    productWithPrice.product,
-                    productWithPrice.price,
-                    productWithPrice.stock
-                );
+        if (result.isPresent()) {
+            ProductWithPrice productWithPrice = result.get();
+
+            // Run creation in a background Task to avoid blocking the UI and to make it safe from double submits
+            Task<Product> createTask = new Task<>() {
+                @Override
+                protected Product call() throws Exception {
+                    return productService.createProductWithPrice(
+                            productWithPrice.product,
+                            productWithPrice.price,
+                            productWithPrice.stock
+                    );
+                }
+            };
+
+            createTask.setOnSucceeded(evt -> {
+                Product created = createTask.getValue();
                 if (created != null) {
                     productCache.put(created);
                     loadProducts();
                     showAlert(Alert.AlertType.INFORMATION, "Success", "Product created successfully!");
+                } else {
+                    showAlert(Alert.AlertType.ERROR, "Error", "Product creation failed.");
                 }
-            } catch (IllegalArgumentException e) {
-                showAlert(Alert.AlertType.ERROR, "Validation Error", e.getMessage());
-            } catch (Exception e) {
-                showAlert(Alert.AlertType.ERROR, "Error", "Failed to create product: " + e.getMessage());
-            }
-        });
+                creatingProduct.set(false);
+            });
+
+            createTask.setOnFailed(evt -> {
+                Throwable ex = createTask.getException();
+                showAlert(Alert.AlertType.ERROR, "Error", "Failed to create product: " + (ex != null ? ex.getMessage() : "unknown"));
+                creatingProduct.set(false);
+            });
+
+            new Thread(createTask).start();
+        } else {
+            // Dialog was cancelled
+            creatingProduct.set(false);
+        }
     }
 
     @FXML
@@ -566,45 +603,19 @@ public class ProductController implements Initializable {
         }
     }
 
-    /**
-     * Gets the price and stock for a product from product_item table.
-     */
+    // Use ProductService for price/stock operations
     private double[] getProductPriceAndStock(UUID productId) {
         double[] result = {0.0, 0.0};
-        String sql = "SELECT price, qty_in_stock FROM product_item WHERE product_id = ? LIMIT 1";
-        try {
-            java.sql.Connection conn = com.amalitech.smartecommerce.utils.DBConnection.getConnection();
-            try (java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setObject(1, productId);
-                try (java.sql.ResultSet rs = stmt.executeQuery()) {
-                    if (rs.next()) {
-                        result[0] = rs.getDouble("price");
-                        result[1] = rs.getDouble("qty_in_stock");
-                    }
-                }
-            }
-        } catch (java.sql.SQLException e) {
-            System.err.println("Error getting product price/stock: " + e.getMessage());
+        var item = productService.getProductItemByProductId(productId);
+        if (item != null) {
+            result[0] = item.getPrice();
+            result[1] = item.getQtyInStock();
         }
         return result;
     }
 
-    /**
-     * Updates the price and stock for a product in product_item table.
-     */
     private void updateProductPriceAndStock(UUID productId, double price, int stock) {
-        String sql = "UPDATE product_item SET price = ?, qty_in_stock = ? WHERE product_id = ?";
-        try {
-            java.sql.Connection conn = com.amalitech.smartecommerce.utils.DBConnection.getConnection();
-            try (java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setDouble(1, price);
-                stmt.setInt(2, stock);
-                stmt.setObject(3, productId);
-                stmt.executeUpdate();
-            }
-        } catch (java.sql.SQLException e) {
-            System.err.println("Error updating product price/stock: " + e.getMessage());
-        }
+        productService.updateProductPriceAndStock(productId, price, stock);
     }
 
     private void showAlert(Alert.AlertType type, String title, String message) {

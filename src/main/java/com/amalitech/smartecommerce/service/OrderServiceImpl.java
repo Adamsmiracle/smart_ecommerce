@@ -4,6 +4,9 @@ import com.amalitech.smartecommerce.controller.CustomerDashboardController;
 import com.amalitech.smartecommerce.dao.OrderDao;
 import com.amalitech.smartecommerce.dao.OrderDaoImpl;
 import com.amalitech.smartecommerce.model.Order;
+import com.amalitech.smartecommerce.model.OrderStatus;
+import com.amalitech.smartecommerce.service.OrderStatusService;
+import com.amalitech.smartecommerce.service.OrderStatusServiceImpl;
 
 import java.sql.SQLException;
 import java.util.List;
@@ -15,6 +18,7 @@ import java.util.logging.Logger;
 public class OrderServiceImpl implements OrderService {
     private final OrderDao orderDao;
     private static final Logger LOGGER = Logger.getLogger(OrderServiceImpl.class.getName());
+    private final OrderStatusService orderStatusService = new OrderStatusServiceImpl();
 
     public OrderServiceImpl() {
         this.orderDao = new OrderDaoImpl();
@@ -52,97 +56,22 @@ public class OrderServiceImpl implements OrderService {
         if (order.getId() == null) order.setId(UUID.randomUUID());
         if (order.getOrderDate() == null) order.setOrderDate(LocalDate.now());
 
-        java.sql.Connection conn = null;
-        try {
-            conn = com.amalitech.smartecommerce.utils.DBConnection.getConnection();
-            conn.setAutoCommit(false);
-
-            // Create order
-            String insertOrderSql = "INSERT INTO customer_order (id, user_id, order_date, payment_method_id, shipping_address_id, shipping_method_id, order_total, order_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-            try (java.sql.PreparedStatement orderStmt = conn.prepareStatement(insertOrderSql)) {
-                orderStmt.setObject(1, order.getId());
-                orderStmt.setObject(2, order.getUserId());
-                orderStmt.setObject(3, order.getOrderDate());
-                orderStmt.setObject(4, order.getPaymentMethodId());
-                orderStmt.setObject(5, order.getShippingAddressId());
-                orderStmt.setObject(6, order.getShippingMethodId());
-                orderStmt.setObject(7, order.getOrderTotal());
-                orderStmt.setObject(8, order.getOrderStatus());
-                orderStmt.executeUpdate();
-            }
-
-            // Insert each order line and decrement stock in the same connection/transaction
-            String insertLineSql = "INSERT INTO order_line (id, product_item_id, order_id, qty, price) VALUES (?, ?, ?, ?, ?)";
-            String decStockSql = "UPDATE product_item SET qty_in_stock = qty_in_stock - ? WHERE id = ? AND qty_in_stock >= ?"; // ensure available stock
-
-            for (com.amalitech.smartecommerce.model.OrderLine ol : orderLines) {
-                if (ol.getId() == null) ol.setId(UUID.randomUUID());
-                ol.setOrderId(order.getId());
-
-                try (java.sql.PreparedStatement lineStmt = conn.prepareStatement(insertLineSql)) {
-                    lineStmt.setObject(1, ol.getId());
-                    lineStmt.setObject(2, ol.getProductItemId());
-                    lineStmt.setObject(3, ol.getOrderId());
-                    lineStmt.setInt(4, ol.getQty());
-                    lineStmt.setObject(5, ol.getPrice());
-                    lineStmt.executeUpdate();
-                }
-
-                // decrement stock only if there is sufficient stock
-                try (java.sql.PreparedStatement decStmt = conn.prepareStatement(decStockSql)) {
-                    decStmt.setInt(1, ol.getQty());
-                    decStmt.setObject(2, ol.getProductItemId());
-                    decStmt.setInt(3, ol.getQty());
-                    int rows = decStmt.executeUpdate();
-                    if (rows == 0) {
-                        throw new SQLException("Insufficient stock for product_item: " + ol.getProductItemId());
-                    }
-                }
-            }
-
-            conn.commit();
-
-            // Refresh InventoryCache entries for affected product_item ids
+        // Ensure default order status is 'Pending' when not provided
+        if (order.getOrderStatus() == null) {
             try {
-                com.amalitech.smartecommerce.cache.InventoryCache invCache = com.amalitech.smartecommerce.cache.InventoryCache.getInstance();
-                // Build IN clause
-                StringBuilder inClause = new StringBuilder();
-                for (int i = 0; i < orderLines.size(); i++) {
-                    if (i > 0) inClause.append(",");
-                    inClause.append("?");
-                }
-                String selectQtySql = "SELECT id, qty_in_stock FROM product_item WHERE id IN (" + inClause + ")";
-                try (java.sql.PreparedStatement qStmt = conn.prepareStatement(selectQtySql)) {
-                    int idx = 1;
-                    for (com.amalitech.smartecommerce.model.OrderLine ol : orderLines) {
-                        qStmt.setObject(idx++, ol.getProductItemId());
-                    }
-                    try (java.sql.ResultSet rs = qStmt.executeQuery()) {
-                        while (rs.next()) {
-                            java.util.UUID pid = (java.util.UUID) rs.getObject("id");
-                            int qty = rs.getInt("qty_in_stock");
-                            if (invCache.containsProductId(pid)) {
-                                invCache.updateQuantity(pid, qty);
-                            }
-                        }
-                    }
+                OrderStatus pending = orderStatusService.getOrderStatusByName("Pending");
+                if (pending != null) {
+                    order.setOrderStatus(pending.getId());
+                } else {
+                    LOGGER.log(Level.WARNING, "Order status 'Pending' not found in database; leaving order_status null");
                 }
             } catch (Exception ex) {
-                // non-fatal: log
-                LOGGER.log(Level.WARNING, "Failed to refresh inventory cache after order creation: {0}", ex.getMessage());
-            }
-
-            return order;
-        } catch (SQLException e) {
-            if (conn != null) {
-                try { conn.rollback(); } catch (SQLException ex) { LOGGER.log(Level.SEVERE, "Rollback failed: {0}", ex.getMessage()); }
-            }
-            throw e;
-        } finally {
-            if (conn != null) {
-                try { conn.setAutoCommit(true); conn.close(); } catch (SQLException ex) { LOGGER.log(Level.SEVERE, "Failed to close connection: {0}", ex.getMessage()); }
+                LOGGER.log(Level.WARNING, "Failed to fetch 'Pending' order status: {0}", ex.getMessage());
             }
         }
+
+        // Delegate to DAO which performs transactional create + inventory update
+        return orderDao.createWithLines(order, orderLines);
     }
 
     @Override
@@ -162,5 +91,45 @@ public class OrderServiceImpl implements OrderService {
     public Order deleteOrder(UUID id) {
         if (id == null) throw new IllegalArgumentException("Order id cannot be null");
         return orderDao.delete(id);
+    }
+
+    @Override
+    public Order modifyOrderLines(UUID orderId, java.util.List<com.amalitech.smartecommerce.model.OrderLine> newOrderLines) throws SQLException {
+        if (orderId == null) throw new IllegalArgumentException("Order id cannot be null");
+        if (newOrderLines == null) throw new IllegalArgumentException("newOrderLines cannot be null");
+
+        // Validate current order state - only allow modification if order is not yet shipped/completed
+        Order existing = orderDao.findById(orderId);
+        if (existing == null) throw new IllegalArgumentException("Order not found: " + orderId);
+
+        // Determine editability:
+        // - editable when order_status is null
+        // - editable when shipping method is not set (no shipping assigned yet)
+        // - editable when the order_status corresponds to the 'Pending' status in DB
+        boolean editable = false;
+        if (existing.getOrderStatus() == null) editable = true;
+        if (existing.getShippingMethodId() == null) editable = true;
+        if (!editable) {
+            try {
+                OrderStatus os = orderStatusService.getOrderStatusById(existing.getOrderStatus());
+                if (os != null && "pending".equalsIgnoreCase(os.getStatus())) {
+                    editable = true;
+                }
+            } catch (Exception ex) {
+                // If looking up order status fails, default to non-editable to be safe
+                editable = false;
+            }
+        }
+        if (!editable) {
+            throw new IllegalStateException("Order is not editable in its current state. Only 'Pending' orders (or orders without shipping) can be edited.");
+        }
+
+        // Delegate to DAO which performs transactional updates and inventory adjustments
+        return orderDao.modifyOrderLines(orderId, newOrderLines);
+    }
+
+    @Override
+    public List<com.amalitech.smartecommerce.model.OrderLine> getOrderLinesRaw(UUID orderId) {
+        return orderDao.getOrderLinesRaw(orderId);
     }
 }

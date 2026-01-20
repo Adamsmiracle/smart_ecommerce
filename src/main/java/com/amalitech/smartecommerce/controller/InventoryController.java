@@ -212,7 +212,6 @@ public class InventoryController implements Initializable {
 
                 // OPTIMIZATION: Batch load all inventory data in ONE query
                 // Instead of: 1 query per product (N+1 problem)
-                // Now: 1 query for all products
                 List<ProductItem> allProductItems = productService.getAllProductItems();
 
                 // Create map for fast lookup: product_id -> ProductItem
@@ -531,52 +530,46 @@ public class InventoryController implements Initializable {
      * @param newQuantity The new stock quantity
      */
     private void updateProductQuantity(UUID productId, int newQuantity) {
-        Task<Boolean> updateTask = new Task<>() {
-            @Override
-            protected Boolean call() throws Exception {
-                try {
+         Task<Boolean> updateTask = new Task<>() {
+             @Override
+             protected Boolean call() throws Exception {
+                 try {
                     ProductItem productItem = productItemMap.get(productId);
                     if (productItem != null) {
                         productItem.setQtyInStock(newQuantity);
-                        // Use the ProductService to update via DAO
+                        // Use the ProductService to update via DAO; ProductService updates the InventoryCache internally
                         ProductItem updated = productService.updateProductStock(productItem);
-
-                        // Update cache if database update was successful
-                        if (updated != null) {
-                            inventoryCache.update(updated);
-                        }
-
                         return updated != null;
                     }
-                    return false;
-                } catch (Exception e) {
-                    LOGGER.log(Level.SEVERE, "Error updating product quantity: {0}", e.getMessage());
-                    LOGGER.log(Level.SEVERE, "Exception details", e);
-                    return false;
-                }
-            }
+                     return false;
+                 } catch (Exception e) {
+                     LOGGER.log(Level.SEVERE, "Error updating product quantity: {0}", e.getMessage());
+                     LOGGER.log(Level.SEVERE, "Exception details", e);
+                     return false;
+                 }
+             }
 
-            @Override
-            protected void succeeded() {
-                if (!getValue()) {
-                    Platform.runLater(() ->
-                        showAlert(Alert.AlertType.WARNING, "Database Update",
-                            "Could not persist quantity to database. UI has been updated.")
-                    );
-                }
-            }
+             @Override
+             protected void succeeded() {
+                 if (!getValue()) {
+                     Platform.runLater(() ->
+                         showAlert(Alert.AlertType.WARNING, "Database Update",
+                             "Could not persist quantity to database. UI has been updated.")
+                     );
+                 }
+             }
 
-            @Override
-            protected void failed() {
-                Platform.runLater(() ->
-                    showAlert(Alert.AlertType.ERROR, "Database Error",
-                        "Failed to update quantity in database: " + getException().getMessage())
-                );
-            }
-        };
+             @Override
+             protected void failed() {
+                 Platform.runLater(() ->
+                     showAlert(Alert.AlertType.ERROR, "Database Error",
+                         "Failed to update quantity in database: " + getException().getMessage())
+                 );
+             }
+         };
 
-        // Run update task in background thread
-        new Thread(updateTask).start();
-    }
-}
+         // Run update task in background thread
+         new Thread(updateTask).start();
+     }
+ }
 

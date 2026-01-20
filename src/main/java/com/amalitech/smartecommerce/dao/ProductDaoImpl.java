@@ -82,16 +82,31 @@ public class ProductDaoImpl implements ProductDao {
 
     @Override
     public Product create(Product product) {
-        String sql = "INSERT INTO product (id, category_id, name, description, product_image) VALUES (?, ?, ?, ?, ?)";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setObject(1, product.getId());
-            stmt.setObject(2, product.getCategoryId());
-            stmt.setString(3, product.getName());
-            stmt.setString(4, product.getDescription());
-            stmt.setString(5, product.getProductImage());
-            if (stmt.executeUpdate() > 0) {
-                return product;
+        // Prevent duplicate products with same name and category.
+        String findSql = "SELECT * FROM product WHERE name = ? AND category_id = ? LIMIT 1";
+        try (Connection conn = DBConnection.getConnection()) {
+            try (PreparedStatement findStmt = conn.prepareStatement(findSql)) {
+                findStmt.setString(1, product.getName());
+                findStmt.setObject(2, product.getCategoryId());
+                try (ResultSet rs = findStmt.executeQuery()) {
+                    if (rs.next()) {
+                        // already exists - return existing product mapping
+                        return mapResultSetToProduct(rs);
+                    }
+                }
+            }
+
+            // Not found - insert new product
+            String insertSql = "INSERT INTO product (id, category_id, name, description, product_image) VALUES (?, ?, ?, ?, ?)";
+            try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
+                stmt.setObject(1, product.getId());
+                stmt.setObject(2, product.getCategoryId());
+                stmt.setString(3, product.getName());
+                stmt.setString(4, product.getDescription());
+                stmt.setString(5, product.getProductImage());
+                if (stmt.executeUpdate() > 0) {
+                    return product;
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();

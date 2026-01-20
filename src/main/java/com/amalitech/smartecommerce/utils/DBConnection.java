@@ -6,16 +6,13 @@ import java.sql.SQLException;
 
 public class DBConnection {
 
-    private static Connection connection = null;
-
+    // Always return a fresh connection. Managing a single static Connection leads to
+    // reuse of closed connections and issues when callers close/reset it. If you
     public static Connection getConnection() throws SQLException {
-        if (connection == null || connection.isClosed()) {
-            connection = DriverManager.getConnection(
-                    DBConfig.getUrl(),
-                    DBConfig.getUser(),
-                    DBConfig.getPassword()
-            );
-        }
-        return connection;
+        return DriverManager.getConnection(
+                DBConfig.getUrl(),
+                DBConfig.getUser(),
+                DBConfig.getPassword()
+        );
     }
 }
